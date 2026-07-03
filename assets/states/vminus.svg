@@ -1,0 +1,16 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366F1"/><stop offset="1" stop-color="#4338CA"/></linearGradient>
+<linearGradient id="gray" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#94A3B8"/><stop offset="1" stop-color="#475569"/></linearGradient>
+<linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<clipPath id="r"><rect x="0" y="0" width="256" height="256" rx="58"/></clipPath>
+</defs>
+<g clip-path="url(#r)">
+  <polygon points="0,0 256,0 0,256" fill="url(#blue)"/>
+  <polygon points="256,0 256,256 0,256" fill="url(#gray)"/>
+  <rect x="0" y="0" width="256" height="256" fill="url(#h)"/>
+</g>
+<text x="118" y="140" text-anchor="middle" dominant-baseline="central" font-family="Carlito" font-weight="bold" font-size="172" fill="#FFFFFF">V</text>
+<circle cx="196" cy="58" r="46" fill="#FFFFFF"/>
+<rect x="172" y="50" width="48" height="16" rx="8" fill="#475569"/>
+</svg>

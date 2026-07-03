@@ -1,0 +1,155 @@
+// Windows resources: tray/app icon, status icons, Settings dialog, version info.
+#include <windows.h>
+#include <commctrl.h>
+#include "src/resource.h"
+
+#pragma code_page(65001)
+
+IDI_VIETKI ICON "..\\assets\\icon3.ico"
+IDI_TRAY_V      ICON "..\\assets\\states\\tray_v.ico"
+IDI_TRAY_E      ICON "..\\assets\\states\\tray_e.ico"
+IDI_TRAY_VPLUS  ICON "..\\assets\\states\\tray_vplus.ico"
+IDI_TRAY_VMINUS ICON "..\\assets\\states\\tray_vminus.ico"
+IDI_TRAY_G      ICON "..\\assets\\states\\tray_g.ico"
+IDI_TRAY_GPLUS  ICON "..\\assets\\states\\tray_gplus.ico"
+
+// The shell owns only the tab control and the persistent footer.
+IDD_SETTINGS DIALOGEX 0, 0, 330, 312
+STYLE DS_SHELLFONT | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "VietKi — Cài đặt"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    CONTROL         "", IDC_TAB, "SysTabControl32", WS_TABSTOP | WS_CLIPSIBLINGS, 7, 4, 316, 262
+    LTEXT           "", IDC_ABOUT_TEXT, 14, 274, 160, 12
+    LTEXT           "★", IDC_DIRTY_MARK, 202, 272, 10, 12
+    DEFPUSHBUTTON   "Lưu", IDC_BTN_SAVE, 215, 270, 50, 16
+    PUSHBUTTON      "Đóng", IDC_BTN_CLOSE, 271, 270, 50, 16
+    PUSHBUTTON      "Thoát ứng dụng", IDC_BTN_EXIT_APP, 215, 290, 106, 14
+END
+
+// Each page is a real child dialog hosted inside the tab display rectangle.
+IDD_SETTINGS_BASIC DIALOGEX 0, 0, 304, 238
+STYLE DS_CONTROL | DS_SHELLFONT | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Trạng thái", IDC_GRP_STATUS, 4, 0, 304, 30
+    LTEXT           "", IDC_STATUS_TEXT, 11, 12, 290, 14
+    GROUPBOX        "Kiểu gõ & đặt dấu", IDC_GRP_TYPING, 4, 34, 304, 48
+    AUTORADIOBUTTON "Telex", IDC_RADIO_TELEX, 11, 48, 90, 10, WS_GROUP | WS_TABSTOP
+    AUTORADIOBUTTON "VNI", IDC_RADIO_VNI, 11, 62, 90, 10
+    AUTORADIOBUTTON "Dấu kiểu mới", IDC_RADIO_TONE_MODERN, 151, 48, 110, 10, WS_GROUP | WS_TABSTOP
+    AUTORADIOBUTTON "Dấu kiểu cũ", IDC_RADIO_TONE_OLD, 151, 62, 110, 10
+    GROUPBOX        "Xử lý từ và thao tác hủy", IDC_GRP_SPELL, 4, 86, 304, 92
+    AUTOCHECKBOX    "Kiểm tra và khôi phục từ không phải tiếng Việt", IDC_CHECK_SPELLCHECK, 11, 100, 264, 10
+    LTEXT           "ⓘ", IDC_HELP_SPELLCHECK, 279, 97, 18, 16, SS_NOTIFY | SS_CENTER
+    LTEXT           "Tự trả lại phím gốc khi chuỗi không thể là âm tiết tiếng Việt.", IDC_DESC_SPELLCHECK, 21, 112, 276, 9
+    AUTOCHECKBOX    "Giữ nguyên phần còn lại của từ sau khi hủy dấu", IDC_CHECK_LOCKCANCEL, 11, 136, 264, 10
+    LTEXT           "ⓘ", IDC_HELP_LOCKCANCEL, 279, 133, 18, 16, SS_NOTIFY | SS_CENTER
+    LTEXT           "Ngăn các phím sau tạo dấu lại trong cùng một từ.", IDC_DESC_LOCKCANCEL, 21, 148, 276, 9
+END
+
+IDD_SETTINGS_HOTKEYS DIALOGEX 0, 0, 304, 238
+STYLE DS_CONTROL | DS_SHELLFONT | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Phím tắt", IDC_GRP_HOTKEYS, 4, 0, 304, 116
+    AUTOCHECKBOX    "", IDC_CHECK_MASTER_HOTKEY, 11, 38, 10, 10
+    LTEXT           "Bật/tắt Tiếng Việt", IDC_LABEL_MASTERHK, 25, 40, 80, 9
+    AUTOCHECKBOX    "Ctrl", IDC_MASTER_CTRL, 107, 38, 34, 10
+    AUTOCHECKBOX    "Alt", IDC_MASTER_ALT, 143, 38, 30, 10
+    AUTOCHECKBOX    "Shift", IDC_MASTER_SHIFT, 175, 38, 38, 10
+    AUTOCHECKBOX    "Win", IDC_MASTER_WIN, 215, 38, 32, 10
+    EDITTEXT        IDC_MASTER_KEY, 253, 36, 26, 13, ES_AUTOHSCROLL
+    AUTOCHECKBOX    "", IDC_CHECK_OVERRIDE_HOTKEY, 11, 68, 10, 10
+    LTEXT           "Bật V+ App loại trừ", IDC_LABEL_OVERRIDE, 25, 70, 80, 9
+    AUTOCHECKBOX    "Ctrl", IDC_OVERRIDE_CTRL, 107, 68, 34, 10
+    AUTOCHECKBOX    "Alt", IDC_OVERRIDE_ALT, 143, 68, 30, 10
+    AUTOCHECKBOX    "Shift", IDC_OVERRIDE_SHIFT, 175, 68, 38, 10
+    AUTOCHECKBOX    "Win", IDC_OVERRIDE_WIN, 215, 68, 32, 10
+    EDITTEXT        IDC_OVERRIDE_KEY, 253, 66, 26, 13, ES_AUTOHSCROLL
+    LTEXT           "ⓘ", IDC_HELP_OVERRIDE_HOTKEY, 283, 65, 18, 16, SS_NOTIFY | SS_CENTER
+END
+
+IDD_SETTINGS_SYSTEM DIALOGEX 0, 0, 304, 238
+STYLE DS_CONTROL | DS_SHELLFONT | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Tuỳ chọn", IDC_GRP_OPTIONS, 4, 0, 304, 76
+    AUTOCHECKBOX    "Khởi động cùng Windows", IDC_CHECK_AUTOSTART, 11, 11, 170, 10
+    AUTOCHECKBOX    "Chạy quyền Administrator", IDC_CHECK_AUTOSTART_ADMIN, 20, 23, 160, 10
+    AUTOCHECKBOX    "Sửa lỗi dấu gợi ý", IDC_CHECK_AUTOCOMPLETE, 11, 35, 100, 10
+    LTEXT           "ⓘ", IDC_HELP_AUTOCOMPLETE, 112, 32, 18, 14, SS_NOTIFY | SS_CENTER
+    AUTOCHECKBOX    "Bật tính năng loại trừ theo app", IDC_CHECK_EXCLUSIONON, 11, 47, 200, 10
+    AUTOCHECKBOX    "Bỏ bật/tắt riêng khi rời app", IDC_CHECK_REVERTBLUR, 11, 59, 200, 10
+    AUTOCHECKBOX    "Âm báo khi đổi E/V", IDC_CHECK_SOUND_GLOBAL, 191, 12, 110, 10
+    AUTOCHECKBOX    "Âm báo khi đổi V-/V+", IDC_CHECK_SOUND_EXCLUDED, 191, 25, 110, 10
+    PUSHBUTTON      "Chạy với quyền Admin", IDC_BTN_RUNADMIN, 191, 62, 110, 13
+    GROUPBOX        "Danh sách loại trừ", IDC_GRP_EXCLUDED, 4, 80, 304, 158
+    CONTROL         "", IDC_LIST_EXCLUDED, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 11, 94, 196, 106
+    PUSHBUTTON      "Xoá dòng đã chọn", IDC_BTN_REMOVE, 213, 94, 90, 16
+    PUSHBUTTON      "⌖", IDC_CROSSHAIR, 213, 116, 42, 20, BS_PUSHBUTTON | WS_TABSTOP
+    LTEXT           "Hoặc nhập tên app:", IDC_EXCLUDED_NAME_LABEL, 213, 144, 90, 10
+    EDITTEXT        IDC_EXCLUDED_NAME, 213, 156, 90, 13, ES_AUTOHSCROLL
+    PUSHBUTTON      "Thêm tên đã nhập", IDC_BTN_EXCLUDED_ADD, 213, 178, 90, 16
+    LTEXT           "Giữ nút ngắm, trỏ vào cửa sổ app, rồi nhả để điền tên. Bấm 'Thêm tên đã nhập' để lưu.", IDC_CROSSHAIR_HINT, 11, 200, 292, 32
+END
+
+IDD_SETTINGS_GAMING DIALOGEX 0, 0, 304, 238
+STYLE DS_CONTROL | DS_SHELLFONT | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Gaming Mode", IDC_GRP_GAMING, 4, 0, 304, 106
+    AUTOCHECKBOX    "Bật đổi V-/V+ cho ứng dụng game", IDC_CHECK_GAMING_TOGGLE, 11, 12, 262, 10
+    LTEXT           "ⓘ", IDC_HELP_GAMING_TOGGLE, 283, 9, 18, 16, SS_NOTIFY | SS_CENTER
+    AUTOCHECKBOX    "Bật chế độ gõ tiếng Việt tạm thời", IDC_CHECK_GAMING_TEMP, 11, 28, 156, 10
+    LTEXT           "Phím:", IDC_LABEL_GAMING_TRIGGER, 170, 28, 24, 10
+    EDITTEXT        IDC_GAMING_TRIGGER_KEY, 196, 26, 50, 12, ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "ⓘ", IDC_HELP_GAMING_TEMP, 283, 25, 18, 16, SS_NOTIFY | SS_CENTER
+    LTEXT           "", IDC_GAMING_TRIGGER_WARN, 21, 40, 260, 9
+    AUTOCHECKBOX    "Bật âm thanh khi VietKi chuyển chế độ", IDC_CHECK_GAMING_SOUND, 11, 50, 262, 10
+    LTEXT           "ⓘ", IDC_HELP_GAMING_SOUND, 283, 47, 18, 16, SS_NOTIFY | SS_CENTER
+    AUTOCHECKBOX    "Hiện overlay khi gõ tiếng Việt", IDC_CHECK_GAMING_OVERLAY, 11, 68, 148, 10
+    LTEXT           "Vị trí:", IDC_LABEL_OVERLAY_POS, 170, 68, 24, 10
+    COMBOBOX        IDC_COMBO_OVERLAY_CORNER, 196, 66, 50, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "ⓘ", IDC_HELP_GAMING_OVERLAY, 283, 65, 18, 16, SS_NOTIFY | SS_CENTER
+    LTEXT           "⚠", IDC_GAMING_ADMIN_ICON, 11, 84, 12, 14, SS_CENTER
+    LTEXT           "Game chạy quyền Admin: hãy chạy VietKi bằng 'Run as administrator'.", IDC_GAMING_ADMIN_WARN, 25, 87, 278, 9
+    GROUPBOX        "Ứng dụng game", IDC_GRP_GAMING_APPS, 4, 108, 304, 130
+    LTEXT           "⚠ Dán Unicode dùng Ctrl+V; chỉ bật cho game hiển thị sai chữ.", IDC_GAMING_PASTE_WARN, 11, 120, 264, 10
+    LTEXT           "ⓘ", IDC_HELP_GAMING_PASTE, 283, 116, 18, 16, SS_NOTIFY | SS_CENTER
+    CONTROL         "", IDC_LIST_GAMING, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 11, 134, 292, 59
+    PUSHBUTTON      "Chọn cửa sổ", IDC_GAMING_CROSSHAIR, 11, 198, 80, 16, BS_PUSHBUTTON | WS_TABSTOP
+    PUSHBUTTON      "Xoá", IDC_BTN_GAMING_REMOVE, 96, 198, 44, 16
+    PUSHBUTTON      "Khôi phục gợi ý", IDC_BTN_GAMING_RESTORE, 145, 198, 92, 16
+    LTEXT           "Nhập tên:", IDC_GAMING_NAME_LABEL, 11, 220, 40, 10
+    EDITTEXT        IDC_GAMING_NAME, 53, 218, 148, 13, ES_AUTOHSCROLL
+    PUSHBUTTON      "Thêm tên đã nhập", IDC_BTN_GAMING_ADD, 205, 217, 93, 16
+END
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 0,5,3,0
+ PRODUCTVERSION 0,5,3,0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "VietKi"
+            VALUE "FileDescription", "VietKi Vietnamese input method"
+            VALUE "FileVersion", "0.5.3.0"
+            VALUE "InternalName", "VietKi"
+            VALUE "OriginalFilename", "VietKi.exe"
+            VALUE "ProductName", "VietKi"
+            VALUE "ProductVersion", "0.5.3.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
