@@ -404,6 +404,8 @@ static bool loadLegacyJsonConfig(AppConfig &cfg) {
     cfg.spellCheck = [d[@"spellCheck"] boolValue];
   if (d[@"lockWordAfterCancel"])
     cfg.lockWordAfterCancel = [d[@"lockWordAfterCancel"] boolValue];
+  if (d[@"restoreAfterSpace"])
+    cfg.restoreAfterSpace = [d[@"restoreAfterSpace"] boolValue];
   if (d[@"autocompleteFix"])
     cfg.autocompleteFix = [d[@"autocompleteFix"] boolValue];
   if (d[@"soundOnGlobalToggle"])
@@ -586,6 +588,8 @@ void loadConfig(AppConfig &cfg) {
         cfg.spellCheck = parseBool(value, cfg.spellCheck);
       else if (keyLower == "lockwordaftercancel")
         cfg.lockWordAfterCancel = parseBool(value, cfg.lockWordAfterCancel);
+      else if (keyLower == "restoreafterspace" || keyLower == "restore_after_space")
+        cfg.restoreAfterSpace = parseBool(value, cfg.restoreAfterSpace);
       else if (keyLower == "autostart")
         cfg.autostart = parseBool(value, cfg.autostart);
       else if (keyLower == "autocompletefix")
@@ -693,6 +697,7 @@ void saveConfig(const AppConfig &cfg) {
   out << "enabled=" << boolText(cfg.enabled) << "\n";
   out << "spellCheck=" << boolText(cfg.spellCheck) << "\n";
   out << "lockWordAfterCancel=" << boolText(cfg.lockWordAfterCancel) << "\n";
+  out << "restore_after_space=" << boolText(cfg.restoreAfterSpace) << "\n";
   out << "autostart=" << boolText(cfg.autostart) << "\n";
   out << "autocompleteFix=" << boolText(cfg.autocompleteFix) << "\n";
   out << "soundOnGlobalToggle=" << boolText(cfg.soundOnGlobalToggle) << "\n";
@@ -993,7 +998,8 @@ static IconState resolveIcon() {
 
   static Engine engine(Config{state().config.method, state().config.tone,
                               state().config.enabled, state().config.spellCheck,
-                              state().config.lockWordAfterCancel});
+                              state().config.lockWordAfterCancel,
+                              state().config.restoreAfterSpace});
   state().engine = &engine;
 
   self.statusItem = [[NSStatusBar systemStatusBar]
@@ -1038,7 +1044,8 @@ void applyResolvedState() {
   if (g_state.engine)
     g_state.engine->setConfig(Config{
         g_state.config.method, g_state.config.tone, g_state.currentModeVN,
-        g_state.config.spellCheck, g_state.config.lockWordAfterCancel});
+        g_state.config.spellCheck, g_state.config.lockWordAfterCancel,
+        g_state.config.restoreAfterSpace});
   
   if (!g_overlay) {
     g_overlay = [[GamingOverlayController alloc] init];

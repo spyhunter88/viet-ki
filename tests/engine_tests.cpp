@@ -388,6 +388,132 @@ TEST_CASE("Phase 4 G.5: reset clears buffer and mode") {
     CHECK(run(U"ddi") == U"đi"); // composing again after the reset
 }
 
+// PHASE6.md: Space commits and clears the buffer as before, but an immediate
+// Backspace restores it instead of just deleting the space, so the user can
+// keep correcting tones. Helpers below drive the engine the way the Windows
+// hook does: onChar for regular keys, onSpace() for Space specifically, and
+// onBackspace() for Backspace (hook.cpp routes VK_SPACE to onSpace()).
+namespace {
+
+void feedInto(Engine& e, std::u32string& screen, char32_t c) {
+    KeyResult r = e.onChar(c, false);
+    if (r.swallow) {
+        for (int i = 0; i < r.backspaces && !screen.empty(); ++i) screen.pop_back();
+        screen += r.commit;
+    } else {
+        screen.push_back(c);
+    }
+}
+
+void spaceInto(Engine& e, std::u32string& screen) {
+    e.onSpace();
+    screen.push_back(U' '); // Space always passes through to the app
+}
+
+void backspaceInto(Engine& e, std::u32string& screen) {
+    KeyResult r = e.onBackspace();
+    if (r.swallow) {
+        for (int i = 0; i < r.backspaces && !screen.empty(); ++i) screen.pop_back();
+        screen += r.commit;
+    } else if (!screen.empty()) {
+        screen.pop_back();
+    }
+}
+
+// Types `before`, then Space, then Backspace, then `after` — the PHASE6.md 1
+// restore path — and returns the resulting on-screen text.
+std::u32string restoreAfterSpace(const Config& cfg, const std::u32string& before,
+                                  const std::u32string& after) {
+    Engine e(cfg);
+    std::u32string screen;
+    for (char32_t c : before) feedInto(e, screen, c);
+    spaceInto(e, screen);
+    backspaceInto(e, screen);
+    for (char32_t c : after) feedInto(e, screen, c);
+    return screen;
+}
+
+} // namespace
+
+TEST_CASE("Phase 6: restore after Space + Backspace matches uninterrupted typing") {
+    Config cfg{Method::Telex, TonePlacement::Modern, true};
+    // "nguyen" + Space + Backspace + "x" must behave exactly as if the user had
+    // never pressed Space at all (PHASE6.md edge case 1).
+    CHECK(restoreAfterSpace(cfg, U"nguyen", U"x") == telex(U"nguyenx"));
+    CHECK(restoreAfterSpace(cfg, U"dduwowcj", U"j") == telex(U"dduwowcjj"));
+}
+
+TEST_CASE("Phase 6: a keystroke between Space and Backspace cancels the restore") {
+    // Edge case 2: "nguyen" Space "a" Backspace -> no restore; Backspace just
+    // removes the "a" that was typed after the space.
+    Engine e(Config{Method::Telex, TonePlacement::Modern, true});
+    std::u32string screen;
+    for (char32_t c : std::u32string(U"nguyen")) feedInto(e, screen, c);
+    spaceInto(e, screen);
+    feedInto(e, screen, U'a');
+    backspaceInto(e, screen);
+    CHECK(screen == U"nguyen ");
+}
+
+TEST_CASE("Phase 6: a second Space cancels the restore (multi-space, v1 scope)") {
+    // Edge case 3: two spaces in a row are deliberate spacing, not a mistake to
+    // restore from; Backspace only removes the second space.
+    Engine e(Config{Method::Telex, TonePlacement::Modern, true});
+    std::u32string screen;
+    for (char32_t c : std::u32string(U"nguyen")) feedInto(e, screen, c);
+    spaceInto(e, screen);
+    spaceInto(e, screen);
+    backspaceInto(e, screen);
+    CHECK(screen == U"nguyen ");
+}
+
+TEST_CASE("Phase 6: reset() between Space and Backspace cancels the restore") {
+    // Stand-in for mouse click / focus change / caret movement (edge cases
+    // 4-6), all of which route through Engine::reset() in every shell.
+    Engine e(Config{Method::Telex, TonePlacement::Modern, true});
+    std::u32string screen;
+    for (char32_t c : std::u32string(U"nguyen")) feedInto(e, screen, c);
+    spaceInto(e, screen);
+    e.reset();
+    backspaceInto(e, screen);
+    CHECK(screen == U"nguyen");
+}
+
+TEST_CASE("Phase 6: restoreAfterSpace=false behaves exactly like today") {
+    // Edge case 7: with the option off, Backspace only deletes the space and a
+    // fresh buffer starts on the next key.
+    Config cfg{Method::Telex, TonePlacement::Modern, true, true, true, false};
+    Engine e(cfg);
+    std::u32string screen;
+    for (char32_t c : std::u32string(U"nguyen")) feedInto(e, screen, c);
+    spaceInto(e, screen);
+    backspaceInto(e, screen);
+    CHECK(screen == U"nguyen");
+    feedInto(e, screen, U'x');
+    CHECK(screen == U"nguyenx"); // new buffer, not a continuation of "nguyen"
+}
+
+TEST_CASE("Phase 6: restored word still goes through spell check (edge case 8/11)") {
+    // "overrid" is a valid Vietnamese prefix; completing it to "override" makes
+    // it structurally invalid, so spell check must restore it to literal keys
+    // exactly as it would without the Space/Backspace in the middle.
+    Config cfg{Method::Telex, TonePlacement::Modern, true};
+    CHECK(restoreAfterSpace(cfg, U"overrid", U"e") == telex(U"override"));
+}
+
+TEST_CASE("Phase 6: only the first Backspace after Space restores (auto-repeat)") {
+    // Edge case 10: a held Backspace fires many times; only the first one may
+    // restore, every following one removes on-screen characters as usual.
+    Engine e(Config{Method::Telex, TonePlacement::Modern, true});
+    std::u32string screen;
+    for (char32_t c : std::u32string(U"nguyen")) feedInto(e, screen, c);
+    spaceInto(e, screen);
+    backspaceInto(e, screen); // restores: removes the space only
+    CHECK(screen == U"nguyen");
+    backspaceInto(e, screen); // no cache left: removes one on-screen glyph
+    CHECK(screen == U"nguye");
+}
+
 // C.7: the clear-tone keys (Telex 'z', VNI '0') only strip a tone, never a
 // structural mark, and are swallowed only when they actually removed a tone.
 TEST_CASE("Phase 4 C.7: clear-tone keys (z / 0)") {
@@ -441,4 +567,43 @@ TEST_CASE("Disabled passes through") {
     Engine e(Config{Method::Telex, TonePlacement::Modern, false});
     KeyResult r = e.onChar(U's', false);
     CHECK_FALSE(r.swallow);
+}
+
+// Phase 4.1 (Linux/IBus): a composition-model shell ignores the KeyResult diff
+// and just reads preedit() after each key. Verify preedit() tracks the full
+// display and equals display(), so IBus can render it directly.
+TEST_CASE("Phase 4.1: preedit() mirrors the composed display") {
+    Engine e(Config{Method::Telex, TonePlacement::Modern, true});
+    CHECK(e.preedit().empty());
+    for (char32_t c : std::u32string(U"vieejt")) e.onChar(c, false);
+    CHECK(e.preedit() == U"việt");
+    CHECK(e.preedit() == e.display());
+    // A word break commits and clears the composition (shell reads the empty
+    // preedit and hides it).
+    e.onChar(0, true);
+    CHECK(e.preedit().empty());
+}
+
+// Phase 4.1: the IBus shell implements preedit Backspace by dropping the last
+// raw key and replaying the buffer (rawBuffer() + reset() + onChar). Verify
+// that reproduces the expected per-keystroke undo.
+TEST_CASE("Phase 4.1: raw-buffer replay backspaces one keystroke") {
+    Engine e(Config{Method::Telex, TonePlacement::Modern, true});
+    for (char32_t c : std::u32string(U"vieejt")) e.onChar(c, false);
+    CHECK(e.preedit() == U"việt");
+
+    // Shell-side backspace: pop the last raw key ('t'), replay the rest.
+    std::u32string raw = e.rawBuffer();
+    REQUIRE_FALSE(raw.empty());
+    raw.pop_back();
+    e.reset();
+    for (char32_t c : raw) e.onChar(c, false);
+    CHECK(e.preedit() == U"việ");
+
+    // Pop the tone key 'j' next: the tone lifts, matching keystroke-level undo.
+    raw = e.rawBuffer();
+    raw.pop_back();
+    e.reset();
+    for (char32_t c : raw) e.onChar(c, false);
+    CHECK(e.preedit() == U"viê");
 }

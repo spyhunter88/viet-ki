@@ -5,6 +5,7 @@
 // previews the target process, then stages it until the user explicitly clicks
 // "Thêm". The dialog keeps edits as a draft until "Lưu" is pressed.
 #include "app.h"
+#include "typing_stats.h"
 
 #include <commctrl.h>
 #include <dwmapi.h>
@@ -49,7 +50,7 @@ namespace {
 bool g_picking = false;
 HBRUSH g_tabPageBrush = nullptr;
 COLORREF g_tabPageColor = RGB(255, 255, 255);
-HWND g_tabPages[4] = {};
+HWND g_tabPages[5] = {};
 HWND g_highlight = nullptr;
 HCURSOR g_crossCursor = nullptr;
 HWND g_tooltip = nullptr;
@@ -177,10 +178,13 @@ bool isTabPageTextControl(int id) {
         case IDC_GRP_SPELL:
         case IDC_CHECK_SPELLCHECK:
         case IDC_CHECK_LOCKCANCEL:
+        case IDC_CHECK_RESTOREAFTERSPACE:
         case IDC_HELP_SPELLCHECK:
         case IDC_HELP_LOCKCANCEL:
+        case IDC_HELP_RESTOREAFTERSPACE:
         case IDC_DESC_SPELLCHECK:
         case IDC_DESC_LOCKCANCEL:
+        case IDC_DESC_RESTOREAFTERSPACE:
         case IDC_GRP_HOTKEYS:
         case IDC_CHECK_MASTER_HOTKEY:
         case IDC_LABEL_MASTERHK:
@@ -225,6 +229,13 @@ bool isTabPageTextControl(int id) {
         case IDC_HELP_GAMING_PASTE:
         case IDC_GRP_GAMING_APPS:
         case IDC_GAMING_NAME_LABEL:
+        case IDC_GRP_STATS_TOGGLE:
+        case IDC_CHECK_TYPINGSTATS:
+        case IDC_HELP_TYPINGSTATS:
+        case IDC_DESC_TYPINGSTATS:
+        case IDC_GRP_STATS_SUMMARY:
+        case IDC_STATS_SUMMARY:
+        case IDC_GRP_STATS_WORDS:
             return true;
         default:
             return false;
@@ -278,16 +289,24 @@ void addTooltip(HWND dlg, int controlId, const wchar_t* text) {
 
 void closeHelp(); // fwd: defined with the popover, used on tab change
 
+constexpr int kTabCount = 5;
+constexpr int kStatsTabIndex = 4;
+
+void refreshStatsDisplay(HWND dlg); // fwd: populated from typingStatsSnapshot()
+
 void showTab(HWND dlg, int tab) {
     closeHelp(); // a tab change is a context break for the help popover (H.1)
     g_activeTab = tab;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < kTabCount; ++i) {
         if (g_tabPages[i]) ShowWindow(g_tabPages[i], i == tab ? SW_SHOW : SW_HIDE);
     }
     updateActionButtons(dlg);
-    if (tab >= 0 && tab < 4 && g_tabPages[tab])
+    if (tab >= 0 && tab < kTabCount && g_tabPages[tab])
         SetWindowPos(g_tabPages[tab], HWND_TOP, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    // The stats can change any time (typing in other apps), so refresh the
+    // numbers whenever the user comes back to look at them.
+    if (tab == kStatsTabIndex) refreshStatsDisplay(dlg);
 }
 
 void initTabs(HWND dlg) {
@@ -309,6 +328,8 @@ void initTabs(HWND dlg) {
     TabCtrl_InsertItem(tab, 2, &item);
     item.pszText = const_cast<wchar_t*>(L"Chơi game");
     TabCtrl_InsertItem(tab, 3, &item);
+    item.pszText = const_cast<wchar_t*>(L"Thống kê");
+    TabCtrl_InsertItem(tab, 4, &item);
 
     RECT pageRect;
     GetClientRect(tab, &pageRect);
@@ -318,8 +339,9 @@ void initTabs(HWND dlg) {
         IDD_SETTINGS_HOTKEYS,
         IDD_SETTINGS_SYSTEM,
         IDD_SETTINGS_GAMING,
+        IDD_SETTINGS_STATS,
     };
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < kTabCount; ++i) {
         g_tabPages[i] = CreateDialogParamW(
             GetModuleHandleW(nullptr), MAKEINTRESOURCEW(pageIds[i]), tab,
             pageProc, (LPARAM)dlg);
@@ -776,6 +798,24 @@ const HelpDoc kSpellDoc = {L"Kiểm tra và khôi phục từ không phải ti�
 const HelpDoc kLockDoc = {L"Giữ nguyên phần còn lại của từ sau khi hủy dấu",
                           kLockLines, ARRAYSIZE(kLockLines)};
 
+// Phase 6: restore the word Space just committed if Backspace follows right away.
+const HelpLine kRestoreAfterSpaceLines[] = {
+    {L"Khi bạn nhấn dấu cách, VietKi chốt từ vừa gõ lại. Nếu bấm Backspace ngay "
+     L"sau đó (không có phím nào xen giữa), VietKi khôi phục lại từ đó để bạn gõ "
+     L"tiếp dấu thay vì phải gõ lại cả từ.", false, false},
+    {L"Ví dụ:", false, true},
+    {L"nguyen [cách][xóa]x  →  nguyễn", true, false},
+    {L"Chỉ khôi phục cho đúng 1 lần dấu cách + 1 lần Backspace liên tiếp. Gõ tiếp, "
+     L"click chuột, đổi cửa sổ hoặc di chuyển con trỏ sẽ hủy khôi phục.",
+     false, true},
+    {L"Tắt tùy chọn này nếu bạn cần dấu cách luôn xóa hẳn từ đang gõ (vd sau khi "
+     L"dán nhầm nội dung và muốn Backspace xóa từng ký tự bình thường).",
+     false, true},
+};
+const HelpDoc kRestoreAfterSpaceDoc = {L"Tiếp tục sửa từ sau khi xóa dấu cách",
+                                       kRestoreAfterSpaceLines,
+                                       ARRAYSIZE(kRestoreAfterSpaceLines)};
+
 // Phase 5.1: the gaming-tab ⓘ icons reuse the same popover as the Basic tab
 // (consistent help UI; see docs/UI_GUIDELINES.md). One HelpDoc per icon.
 const HelpLine kGamingToggleLines[] = {
@@ -853,12 +893,24 @@ const HelpDoc kAutocompleteDoc = {L"Sửa lỗi nhảy dấu ở ô gợi ý (au
                                   kAutocompleteLines,
                                   ARRAYSIZE(kAutocompleteLines)};
 
+// Phase 6 section 7: local-only typing stats.
+const HelpLine kTypingStatsLines[] = {
+    {L"Đếm số từ đã gõ, ước tính tốc độ gõ (WPM) và tỷ lệ dùng Backspace, để bạn "
+     L"tự theo dõi thói quen gõ của mình.", false, false},
+    {L"Dữ liệu chỉ lưu trong tệp typing_stats.dat cạnh VietKi.exe. Không gửi đi "
+     L"đâu, không kèm trong config.ini, không dùng cho quảng cáo.", false, true},
+    {L"Bấm 'Xoá toàn bộ dữ liệu' để xoá sạch bất cứ lúc nào.", false, true},
+};
+const HelpDoc kTypingStatsDoc = {L"Thống kê gõ phím", kTypingStatsLines,
+                                 ARRAYSIZE(kTypingStatsLines)};
+
 // Map an ⓘ icon control to its help document. Returns nullptr if the id is not a
 // help icon. Every ⓘ icon must be listed here (UI_GUIDELINES.md).
 const HelpDoc* helpDocFor(int iconId) {
     switch (iconId) {
         case IDC_HELP_SPELLCHECK: return &kSpellDoc;
         case IDC_HELP_LOCKCANCEL: return &kLockDoc;
+        case IDC_HELP_RESTOREAFTERSPACE: return &kRestoreAfterSpaceDoc;
         case IDC_HELP_GAMING_TOGGLE: return &kGamingToggleDoc;
         case IDC_HELP_GAMING_TEMP: return &kGamingTempDoc;
         case IDC_HELP_GAMING_SOUND: return &kGamingSoundDoc;
@@ -866,6 +918,7 @@ const HelpDoc* helpDocFor(int iconId) {
         case IDC_HELP_GAMING_PASTE: return &kGamingPasteDoc;
         case IDC_HELP_OVERRIDE_HOTKEY: return &kOverrideHotkeyDoc;
         case IDC_HELP_AUTOCOMPLETE: return &kAutocompleteDoc;
+        case IDC_HELP_TYPINGSTATS: return &kTypingStatsDoc;
         default: return nullptr;
     }
 }
@@ -931,6 +984,7 @@ void applyHelpIconFont(HWND dlg) {
     }
     if (!g_helpIconFont) return;
     for (int helpId : {IDC_HELP_SPELLCHECK, IDC_HELP_LOCKCANCEL,
+                       IDC_HELP_RESTOREAFTERSPACE, IDC_HELP_TYPINGSTATS,
                        IDC_HELP_OVERRIDE_HOTKEY, IDC_HELP_AUTOCOMPLETE,
                        IDC_HELP_GAMING_TOGGLE, IDC_HELP_GAMING_TEMP,
                        IDC_HELP_GAMING_SOUND, IDC_HELP_GAMING_OVERLAY,
@@ -1242,6 +1296,47 @@ void initGamingList(HWND dlg) {
     ListView_InsertColumn(list, 1, &col);
 }
 
+// Phase 6 section 7: the "Thống kê" tab's word-frequency list.
+void initStatsList(HWND dlg) {
+    HWND list = GetDlgItem(dlg, IDC_LIST_TOPWORDS);
+    SetWindowTheme(list, L"Explorer", nullptr);
+    ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+    LVCOLUMNW col = {};
+    col.mask = LVCF_TEXT | LVCF_WIDTH;
+    col.pszText = const_cast<wchar_t*>(L"Từ");
+    col.cx = 200;
+    ListView_InsertColumn(list, 0, &col);
+    col.pszText = const_cast<wchar_t*>(L"Số lần");
+    col.cx = 80;
+    ListView_InsertColumn(list, 1, &col);
+}
+
+// Pull the latest counters and repaint the summary text + top-words list.
+// Read-only: this never feeds back into AppConfig, so it needs no draft/dirty
+// tracking the way the excluded/gaming lists do.
+void refreshStatsDisplay(HWND dlg) {
+    TypingStatsSnapshot s = typingStatsSnapshot(50);
+
+    wchar_t summary[256];
+    swprintf_s(summary, L"Tổng số từ đã gõ: %lld\nTốc độ gõ trung bình: %.0f WPM\n"
+                        L"Tỷ lệ dùng Backspace: %.1f%%",
+               s.totalWords, s.wpm, s.backspaceRatioPct);
+    SetDlgItemTextW(dlg, IDC_STATS_SUMMARY, summary);
+
+    HWND list = GetDlgItem(dlg, IDC_LIST_TOPWORDS);
+    ListView_DeleteAllItems(list);
+    for (size_t i = 0; i < s.topWords.size(); ++i) {
+        LVITEMW item = {};
+        item.mask = LVIF_TEXT;
+        item.iItem = (int)i;
+        item.pszText = const_cast<wchar_t*>(s.topWords[i].word.c_str());
+        int row = ListView_InsertItem(list, &item);
+        wchar_t countText[32];
+        swprintf_s(countText, L"%lld", s.topWords[i].count);
+        ListView_SetItemText(list, row, 1, countText);
+    }
+}
+
 // --- dialog population -----------------------------------------------------
 
 void populate(HWND dlg) {
@@ -1283,6 +1378,11 @@ void populate(HWND dlg) {
                    c.spellCheck ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(dlg, IDC_CHECK_LOCKCANCEL,
                    c.lockWordAfterCancel ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(dlg, IDC_CHECK_RESTOREAFTERSPACE,
+                   c.restoreAfterSpace ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(dlg, IDC_CHECK_TYPINGSTATS,
+                   c.typingStats ? BST_CHECKED : BST_UNCHECKED);
+    refreshStatsDisplay(dlg);
     CheckDlgButton(dlg, IDC_CHECK_SOUND_GLOBAL,
                    c.soundOnGlobalToggle ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(dlg, IDC_CHECK_SOUND_EXCLUDED,
@@ -1318,7 +1418,7 @@ void populate(HWND dlg) {
     updateTriggerWarning(dlg);
     updateGamingEnableState(dlg);
 
-    SetDlgItemTextW(dlg, IDC_ABOUT_TEXT, L"VietKi 0.5.3 — bộ gõ tiếng Việt");
+    SetDlgItemTextW(dlg, IDC_ABOUT_TEXT, L"VietKi 0.6 — bộ gõ tiếng Việt");
     addTooltip(dlg, IDC_CROSSHAIR,
                L"Giữ nút này, kéo/trỏ vào cửa sổ app cần loại trừ, rồi nhả.");
     // Phase 3 D.2 tooltips on the hotkey labels and capture controls.
@@ -1402,6 +1502,9 @@ void saveFromDialog(HWND dlg) {
     c.revertOverrideOnBlur = IsDlgButtonChecked(dlg, IDC_CHECK_REVERTBLUR) != 0;
     c.spellCheck = IsDlgButtonChecked(dlg, IDC_CHECK_SPELLCHECK) != 0;
     c.lockWordAfterCancel = IsDlgButtonChecked(dlg, IDC_CHECK_LOCKCANCEL) != 0;
+    c.restoreAfterSpace =
+        IsDlgButtonChecked(dlg, IDC_CHECK_RESTOREAFTERSPACE) != 0;
+    c.typingStats = IsDlgButtonChecked(dlg, IDC_CHECK_TYPINGSTATS) != 0;
     c.soundOnGlobalToggle = IsDlgButtonChecked(dlg, IDC_CHECK_SOUND_GLOBAL) != 0;
     c.soundOnExcludedToggle =
         IsDlgButtonChecked(dlg, IDC_CHECK_SOUND_EXCLUDED) != 0;
@@ -1560,6 +1663,7 @@ bool confirmUnsaved(HWND dlg) {
 
 void closeSettings(HWND dlg) {
     if (!confirmUnsaved(dlg)) return;
+    saveTypingStats(); // message thread: a safe, low-frequency point to flush
     DestroyWindow(dlg);
 }
 
@@ -1582,6 +1686,8 @@ bool isDirtyControl(int id, int code) {
         case IDC_CHECK_REVERTBLUR:
         case IDC_CHECK_SPELLCHECK:
         case IDC_CHECK_LOCKCANCEL:
+        case IDC_CHECK_RESTOREAFTERSPACE:
+        case IDC_CHECK_TYPINGSTATS:
         case IDC_CHECK_SOUND_GLOBAL:
         case IDC_CHECK_SOUND_EXCLUDED:
         case IDC_CHECK_MASTER_HOTKEY:
@@ -1686,7 +1792,7 @@ void collectChildLayouts(HWND root, std::vector<ChildLayout>& out) {
 }
 
 void rescaleListViewColumns(HWND dlg, int numX, int denX) {
-    for (int id : {IDC_LIST_EXCLUDED, IDC_LIST_GAMING}) {
+    for (int id : {IDC_LIST_EXCLUDED, IDC_LIST_GAMING, IDC_LIST_TOPWORDS}) {
         HWND list = settingsControl(dlg, id);
         if (!list) continue;
         for (int col = 0;; ++col) {
@@ -1784,6 +1890,10 @@ INT_PTR CALLBACK dlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam) {
                               IDC_HELP_SPELLCHECK);
             SetWindowSubclass(GetDlgItem(dlg, IDC_HELP_LOCKCANCEL), helpIconProc, 2,
                               IDC_HELP_LOCKCANCEL);
+            SetWindowSubclass(GetDlgItem(dlg, IDC_HELP_RESTOREAFTERSPACE),
+                              helpIconProc, 2, IDC_HELP_RESTOREAFTERSPACE);
+            SetWindowSubclass(GetDlgItem(dlg, IDC_HELP_TYPINGSTATS),
+                              helpIconProc, 2, IDC_HELP_TYPINGSTATS);
             SetWindowSubclass(GetDlgItem(dlg, IDC_HELP_OVERRIDE_HOTKEY),
                               helpIconProc, 2, IDC_HELP_OVERRIDE_HOTKEY);
             SetWindowSubclass(GetDlgItem(dlg, IDC_HELP_AUTOCOMPLETE),
@@ -1796,6 +1906,7 @@ INT_PTR CALLBACK dlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam) {
             applyHelpIconFont(dlg);
             updateAdminStatus(dlg);
             initGamingList(dlg);
+            initStatsList(dlg);
             // Phase 5: the gaming crosshair shares the picker proc; the trigger
             // edit captures a physical key.
             SetWindowSubclass(GetDlgItem(dlg, IDC_GAMING_CROSSHAIR), crosshairProc, 1, 0);
@@ -1888,6 +1999,16 @@ INT_PTR CALLBACK dlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam) {
                     return TRUE;
                 case IDC_BTN_GAMING_REMOVE: removeSelectedGaming(dlg); return TRUE;
                 case IDC_BTN_GAMING_RESTORE: restoreGamingDefaults(dlg); return TRUE;
+                case IDC_BTN_CLEAR_STATS: {
+                    int r = MessageBoxW(dlg,
+                        L"Xoá toàn bộ dữ liệu thống kê gõ phím đã lưu? Không thể hoàn tác.",
+                        L"Xoá thống kê", MB_YESNO | MB_ICONWARNING);
+                    if (r == IDYES) {
+                        clearTypingStats();
+                        refreshStatsDisplay(dlg);
+                    }
+                    return TRUE;
+                }
                 case IDC_CHECK_GAMING_TOGGLE:
                     if (IsDlgButtonChecked(dlg, IDC_CHECK_GAMING_TOGGLE))
                         CheckDlgButton(dlg, IDC_CHECK_GAMING_TEMP, BST_UNCHECKED);
@@ -1980,6 +2101,10 @@ INT_PTR CALLBACK dlgProc(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam) {
                                  triggerEditProc, 3);
             RemoveWindowSubclass(GetDlgItem(dlg, IDC_HELP_SPELLCHECK), helpIconProc, 2);
             RemoveWindowSubclass(GetDlgItem(dlg, IDC_HELP_LOCKCANCEL), helpIconProc, 2);
+            RemoveWindowSubclass(GetDlgItem(dlg, IDC_HELP_RESTOREAFTERSPACE),
+                                 helpIconProc, 2);
+            RemoveWindowSubclass(GetDlgItem(dlg, IDC_HELP_TYPINGSTATS),
+                                 helpIconProc, 2);
             RemoveWindowSubclass(GetDlgItem(dlg, IDC_HELP_OVERRIDE_HOTKEY),
                                  helpIconProc, 2);
             RemoveWindowSubclass(GetDlgItem(dlg, IDC_HELP_AUTOCOMPLETE),

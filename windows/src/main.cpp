@@ -10,6 +10,7 @@
 #include <string>
 
 #include "resource.h"
+#include "typing_stats.h"
 
 namespace vietki::win {
 
@@ -159,6 +160,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             DestroyWindow(hwnd);
             return 0;
         case WM_DESTROY:
+            saveTypingStats(); // message thread, safe point for the one disk write
             PostQuitMessage(0);
             return 0;
         default:
@@ -183,7 +185,8 @@ void applyResolvedState() {
         g_state.engine->setConfig(Config{g_state.config.method, g_state.config.tone,
                                          g_state.currentModeVN,
                                          g_state.config.spellCheck,
-                                         g_state.config.lockWordAfterCancel});
+                                         g_state.config.lockWordAfterCancel,
+                                         g_state.config.restoreAfterSpace});
     // Phase 5.1 E: keep the per-game paste session (clipboard snapshot) warm from
     // the moment the trigger arms — not just once Vietnamese goes active — so the
     // first text key only does a lightweight write + Ctrl+V instead of also taking
@@ -410,6 +413,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int) {
 
     AppState& st = state();
     loadConfig(st.config);
+    loadTypingStats();
     // Keep both logon mechanisms in lockstep with the config: refresh the HKCU
     // Run path and ensure the elevated task matches. When launched by that task
     // we are already elevated, so an out-of-date task is repaired here; a missing
@@ -417,7 +421,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int) {
     reconcileAutostart(st.config);
 
     static Engine engine(Config{st.config.method, st.config.tone, st.config.enabled,
-                                st.config.spellCheck, st.config.lockWordAfterCancel});
+                                st.config.spellCheck, st.config.lockWordAfterCancel,
+                                st.config.restoreAfterSpace});
     st.engine = &engine;
 
     // Resolve the "TaskbarCreated" broadcast so wndProc can re-add the tray icon

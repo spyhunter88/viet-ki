@@ -39,13 +39,16 @@ BEGIN
     AUTORADIOBUTTON "VNI", IDC_RADIO_VNI, 11, 62, 90, 10
     AUTORADIOBUTTON "Dấu kiểu mới", IDC_RADIO_TONE_MODERN, 151, 48, 110, 10, WS_GROUP | WS_TABSTOP
     AUTORADIOBUTTON "Dấu kiểu cũ", IDC_RADIO_TONE_OLD, 151, 62, 110, 10
-    GROUPBOX        "Xử lý từ và thao tác hủy", IDC_GRP_SPELL, 4, 86, 304, 92
+    GROUPBOX        "Xử lý từ và thao tác hủy", IDC_GRP_SPELL, 4, 86, 304, 116
     AUTOCHECKBOX    "Kiểm tra và khôi phục từ không phải tiếng Việt", IDC_CHECK_SPELLCHECK, 11, 100, 264, 10
     LTEXT           "ⓘ", IDC_HELP_SPELLCHECK, 279, 97, 18, 16, SS_NOTIFY | SS_CENTER
     LTEXT           "Tự trả lại phím gốc khi chuỗi không thể là âm tiết tiếng Việt.", IDC_DESC_SPELLCHECK, 21, 112, 276, 9
     AUTOCHECKBOX    "Giữ nguyên phần còn lại của từ sau khi hủy dấu", IDC_CHECK_LOCKCANCEL, 11, 136, 264, 10
     LTEXT           "ⓘ", IDC_HELP_LOCKCANCEL, 279, 133, 18, 16, SS_NOTIFY | SS_CENTER
     LTEXT           "Ngăn các phím sau tạo dấu lại trong cùng một từ.", IDC_DESC_LOCKCANCEL, 21, 148, 276, 9
+    AUTOCHECKBOX    "Tiếp tục sửa từ sau khi xóa dấu cách", IDC_CHECK_RESTOREAFTERSPACE, 11, 162, 264, 10
+    LTEXT           "ⓘ", IDC_HELP_RESTOREAFTERSPACE, 279, 159, 18, 16, SS_NOTIFY | SS_CENTER
+    LTEXT           "Bấm Backspace ngay sau dấu cách để quay lại sửa dấu của từ vừa gõ.", IDC_DESC_RESTOREAFTERSPACE, 21, 174, 276, 9
 END
 
 IDD_SETTINGS_HOTKEYS DIALOGEX 0, 0, 304, 238
@@ -126,9 +129,25 @@ BEGIN
     PUSHBUTTON      "Thêm tên đã nhập", IDC_BTN_GAMING_ADD, 205, 217, 93, 16
 END
 
+// Phase 6 section 7: local-only typing stats. Off by default; no network.
+IDD_SETTINGS_STATS DIALOGEX 0, 0, 304, 238
+STYLE DS_CONTROL | DS_SHELLFONT | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Thống kê gõ phím", IDC_GRP_STATS_TOGGLE, 4, 0, 304, 46
+    AUTOCHECKBOX    "Bật thu thập thống kê gõ phím", IDC_CHECK_TYPINGSTATS, 11, 12, 220, 10
+    LTEXT           "ⓘ", IDC_HELP_TYPINGSTATS, 279, 9, 18, 16, SS_NOTIFY | SS_CENTER
+    LTEXT           "Chỉ lưu trên máy, không gửi đi đâu. Tắt = không thu thập, không ghi tệp.", IDC_DESC_TYPINGSTATS, 21, 24, 276, 18
+    GROUPBOX        "Tổng quan", IDC_GRP_STATS_SUMMARY, 4, 50, 304, 54
+    LTEXT           "", IDC_STATS_SUMMARY, 11, 62, 290, 38
+    GROUPBOX        "Từ hay gõ nhất", IDC_GRP_STATS_WORDS, 4, 108, 304, 96
+    CONTROL         "", IDC_LIST_TOPWORDS, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 11, 120, 292, 76
+    PUSHBUTTON      "Xoá toàn bộ dữ liệu", IDC_BTN_CLEAR_STATS, 11, 210, 120, 16
+END
+
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,5,3,0
- PRODUCTVERSION 0,5,3,0
+ FILEVERSION 0,6,0,0
+ PRODUCTVERSION 0,6,0,0
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS VOS_NT_WINDOWS32
@@ -141,11 +160,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "VietKi"
             VALUE "FileDescription", "VietKi Vietnamese input method"
-            VALUE "FileVersion", "0.5.3.0"
+            VALUE "FileVersion", "0.6.0.0"
             VALUE "InternalName", "VietKi"
             VALUE "OriginalFilename", "VietKi.exe"
             VALUE "ProductName", "VietKi"
-            VALUE "ProductVersion", "0.5.3.0"
+            VALUE "ProductVersion", "0.6.0.0"
         END
     END
     BLOCK "VarFileInfo"

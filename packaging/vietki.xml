@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IBus component descriptor for VietKi. Installed to
+     /usr/share/ibus/component/vietki.xml so ibus-daemon can launch the engine
+     on demand. Run `ibus restart` (or log out/in) after installing. -->
+<component>
+  <name>org.freedesktop.IBus.VietKi</name>
+  <description>VietKi - bo go tieng Viet</description>
+  <exec>/usr/lib/ibus-vietki/ibus-engine-vietki --ibus</exec>
+  <version>0.6</version>
+  <author>VietKi</author>
+  <license>GPL</license>
+  <homepage>https://github.com/</homepage>
+  <textdomain>ibus-vietki</textdomain>
+  <engines>
+    <engine>
+      <name>vietki</name>
+      <longname>VietKi (Telex/VNI)</longname>
+      <description>Bo go tieng Viet (Telex/VNI)</description>
+      <language>vi</language>
+      <license>GPL</license>
+      <author>VietKi</author>
+      <layout>us</layout>
+      <symbol>ế</symbol>
+      <icon>/usr/share/ibus-vietki/icon.png</icon>
+      <rank>99</rank>
+    </engine>
+  </engines>
+</component>

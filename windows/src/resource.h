@@ -18,6 +18,7 @@
 #define IDD_SETTINGS_HOTKEYS 202
 #define IDD_SETTINGS_SYSTEM 203
 #define IDD_SETTINGS_GAMING 204
+#define IDD_SETTINGS_STATS 205
 
 #define IDC_STATUS_TEXT 1000
 #define IDC_RADIO_TELEX 1001
@@ -126,3 +127,17 @@
 #define IDC_HELP_AUTOCOMPLETE 1095
 // "Run elevated at logon" sub-option of Khởi động cùng Windows.
 #define IDC_CHECK_AUTOSTART_ADMIN 1096
+// Phase 6: restore the word Space just committed on an immediate Backspace.
+#define IDC_CHECK_RESTOREAFTERSPACE 1097
+#define IDC_HELP_RESTOREAFTERSPACE 1098
+#define IDC_DESC_RESTOREAFTERSPACE 1099
+// Phase 6 section 7: the "Thống kê" tab (local-only typing stats).
+#define IDC_GRP_STATS_TOGGLE 1100
+#define IDC_CHECK_TYPINGSTATS 1101
+#define IDC_HELP_TYPINGSTATS 1102
+#define IDC_DESC_TYPINGSTATS 1103
+#define IDC_GRP_STATS_SUMMARY 1104
+#define IDC_STATS_SUMMARY 1105
+#define IDC_GRP_STATS_WORDS 1106
+#define IDC_LIST_TOPWORDS 1107
+#define IDC_BTN_CLEAR_STATS 1108

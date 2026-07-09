@@ -43,6 +43,12 @@ struct Config {
     // When false, only the current key is cancelled and composing continues
     // freely ("offf" -> "òf"), which suits sequences like "đượợợợợc".
     bool lockWordAfterCancel = true;
+    // Phase 6: after Space commits a word, an immediate Backspace restores the
+    // just-committed buffer instead of only deleting the space, so the user can
+    // keep correcting tones. Any other keystroke, or an explicit reset() (mouse
+    // click, focus change, caret movement, a non-Space word break), drops the
+    // cache. When false, Backspace after Space behaves exactly as before.
+    bool restoreAfterSpace = true;
 };
 
 // Result of feeding one key to the engine, for the OS shell to execute.
@@ -65,15 +71,28 @@ public:
     //     punctuation, arrows, Home/End/PageUp/Down, Esc, Delete, ...).
     KeyResult onChar(char32_t ch, bool isWordBreak);
 
-    // The user pressed Backspace themselves: undo the last raw key.
+    // Phase 6: Space, specifically. Behaves like onChar(0, true) (commits and
+    // clears the buffer) but, when restoreAfterSpace is on and the buffer is
+    // non-empty, first snapshots it so a following Backspace can restore it.
+    KeyResult onSpace();
+
+    // The user pressed Backspace themselves: undo the last raw key, or (Phase 6)
+    // restore the word just committed by Space if the cache is still valid.
     KeyResult onBackspace();
 
-    // Clear the buffer (focus change, mouse click, word break).
+    // Clear the buffer (focus change, mouse click, word break). Also drops any
+    // pending Phase 6 commit cache.
     void reset();
 
     // Exposed for testing / shells that want to inspect the current composition.
     const std::u32string& rawBuffer() const { return raw_; }
     const std::u32string& display() const { return display_; }
+
+    // Phase 4.1 (Linux/IBus): the full display string of the syllable being
+    // composed. A composition-model shell (IBus preedit, TSF, IMKit) renders
+    // this as the uncommitted preedit on every key instead of using the
+    // backspace/commit diff in KeyResult. Read-only; identical to display().
+    const std::u32string& preedit() const { return display_; }
 
 private:
     KeyResult emitDiff(const std::u32string& next, char32_t ch);
@@ -82,6 +101,13 @@ private:
     std::u32string raw_;     // printable keys typed for the current syllable
     std::u32string display_; // what is currently shown on screen for this syllable
     CompositionMode mode_ = CompositionMode::Composing; // Phase 4 D
+
+    // Phase 6: one-shot cache of the word Space just committed, consumed by the
+    // very next onBackspace() if nothing else touched the engine in between.
+    bool hasCommitCache_ = false;
+    std::u32string cachedRaw_;
+    std::u32string cachedDisplay_;
+    CompositionMode cachedMode_ = CompositionMode::Composing;
 };
 
 } // namespace vietki

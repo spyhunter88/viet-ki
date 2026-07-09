@@ -119,9 +119,11 @@ bool exactMods(const Hotkey& hk, uint64_t flags) {
     return (flags & kModMask) == (hk.mods & kModMask);
 }
 
+// kVK_Space is handled separately (Engine::onSpace(), Phase 6) so it can cache
+// the committed word for a possible restore on the very next Backspace.
 bool isWordBreakKeycode(CGKeyCode kc) {
     switch (kc) {
-        case kVK_Space: case kVK_Return: case kVK_Tab: case kVK_Escape:
+        case kVK_Return: case kVK_Tab: case kVK_Escape:
         case kVK_ANSI_KeypadEnter:
         case kVK_LeftArrow: case kVK_RightArrow: case kVK_UpArrow: case kVK_DownArrow:
         case kVK_Home: case kVK_End: case kVK_PageUp: case kVK_PageDown:
@@ -247,6 +249,14 @@ CGEventRef callback(CGEventTapProxy, CGEventType type, CGEventRef event, void*) 
             }
             return nil; // swallow
         }
+        return event;
+    }
+
+    // Phase 6: Space gets its own entry point so it can cache the just-committed
+    // word for a possible restore on the very next Backspace (PHASE6.md 3).
+    if (kc == kVK_Space) {
+        if (pasteMode) resetPasteBaseline();
+        eng->onSpace();
         return event;
     }
 

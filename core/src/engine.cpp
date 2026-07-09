@@ -31,6 +31,11 @@ void Engine::reset() {
     raw_.clear();
     display_.clear();
     mode_ = CompositionMode::Composing; // Phase 4 D: a fresh word composes again
+    // Phase 6: any explicit reset (mouse click, focus change, caret movement, a
+    // non-Space word break) invalidates a pending Space-commit cache.
+    hasCommitCache_ = false;
+    cachedRaw_.clear();
+    cachedDisplay_.clear();
 }
 
 // Diff `next` against what is currently on screen and turn the delta into a
@@ -65,6 +70,10 @@ KeyResult Engine::onChar(char32_t ch, bool isWordBreak) {
         // Non-character key (bare modifier, etc.): leave the buffer untouched.
         return KeyResult{};
     }
+
+    // Phase 6: a real keystroke here means Backspace was not the very next key
+    // after Space, so any pending commit cache is no longer eligible to restore.
+    hasCommitCache_ = false;
 
     raw_.push_back(ch);
 
@@ -101,7 +110,42 @@ KeyResult Engine::onChar(char32_t ch, bool isWordBreak) {
     return emitDiff(next, ch);
 }
 
+KeyResult Engine::onSpace() {
+    if (!cfg_.enabled) {
+        reset();
+        return KeyResult{};
+    }
+    // Only a non-empty buffer is worth caching; an empty raw_ means either
+    // nothing was typed or this is a second consecutive Space (v1 restores at
+    // most one Space + one Backspace, per PHASE6.md 4).
+    const bool shouldCache = cfg_.restoreAfterSpace && !raw_.empty();
+    std::u32string savedRaw = std::move(raw_);
+    std::u32string savedDisplay = std::move(display_);
+    CompositionMode savedMode = mode_;
+    reset(); // clears raw_/display_/mode_ and any stale commit cache
+    if (shouldCache) {
+        hasCommitCache_ = true;
+        cachedRaw_ = std::move(savedRaw);
+        cachedDisplay_ = std::move(savedDisplay);
+        cachedMode_ = savedMode;
+    }
+    return KeyResult{};
+}
+
 KeyResult Engine::onBackspace() {
+    // Phase 6: the key right after a Space that just committed a word restores
+    // the buffer instead of deleting a character, so the user can keep
+    // correcting tones. Restoring only removes the space glyph on screen
+    // (pass-through, swallow=false); everything else consumes the cache.
+    if (hasCommitCache_) {
+        raw_ = std::move(cachedRaw_);
+        display_ = std::move(cachedDisplay_);
+        mode_ = cachedMode_;
+        hasCommitCache_ = false;
+        cachedRaw_.clear();
+        cachedDisplay_.clear();
+        return KeyResult{}; // swallow=false: the app deletes the space itself
+    }
     // Backspace removes the last on-screen character (e.g. "được" -> "đượ").
     // Because trailing raw keys can be tone/transform keys that affect an
     // earlier glyph, popping the raw buffer would not delete the last visible

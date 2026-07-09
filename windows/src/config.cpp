@@ -352,6 +352,10 @@ void loadConfig(AppConfig& cfg) {
                 cfg.spellCheck = parseBool(value, cfg.spellCheck);
             else if (keyLower == L"lockwordaftercancel")
                 cfg.lockWordAfterCancel = parseBool(value, cfg.lockWordAfterCancel);
+            else if (keyLower == L"restoreafterspace" || keyLower == L"restore_after_space")
+                cfg.restoreAfterSpace = parseBool(value, cfg.restoreAfterSpace);
+            else if (keyLower == L"typingstats" || keyLower == L"typing_stats")
+                cfg.typingStats = parseBool(value, cfg.typingStats);
             else if (keyLower == L"autostart")
                 cfg.autostart = parseBool(value, cfg.autostart);
             else if (keyLower == L"autostartadmin")
@@ -469,6 +473,11 @@ void saveConfig(const AppConfig& cfg) {
     out << "; Lock the rest of the word to literal after an explicit cancel\n";
     out << "; (e.g. \"offf\" -> \"off\"). Off keeps composing freely.\n";
     out << "lockWordAfterCancel=" << boolText(cfg.lockWordAfterCancel) << "\n";
+    out << "; After Space commits a word, restore it if Backspace follows right away.\n";
+    out << "restore_after_space=" << boolText(cfg.restoreAfterSpace) << "\n";
+    out << "; Local-only typing stats (word counts, WPM, backspace ratio). See\n";
+    out << "; typing_stats.dat next to this file; never sent anywhere.\n";
+    out << "typing_stats=" << boolText(cfg.typingStats) << "\n";
     out << "; Start VietKi with Windows.\n";
     out << "autostart=" << boolText(cfg.autostart) << "\n";
     out << "autostartadmin=" << boolText(cfg.autostartAdmin) << "\n";

@@ -91,6 +91,7 @@ using namespace vietki::mac;
 @property(strong) NSButton* revertCheck;
 @property(strong) NSButton* spellCheckBox;
 @property(strong) NSButton* lockCancelBox;
+@property(strong) NSButton* restoreAfterSpaceBox;
 @property(strong) NSPopover* helpPopover;
 @property(strong) NSButton* soundGlobalCheck;
 @property(strong) NSButton* soundExcludedCheck;
@@ -209,6 +210,18 @@ static NSImage* appIconImage() {
                         @"tesst → test\n\nTắt: chỉ lần hủy hiện tại có hiệu lực; phím "
                         @"sau có thể tạo dấu lại, nên “offf” → “òf”. Hữu ích khi gõ "
                         @"chuỗi đặc biệt như “đượợợợợc”."
+             relativeTo:sender];
+}
+
+- (void)onRestoreAfterSpaceHelp:(id)sender {
+    [self showHelpTitle:@"Tiếp tục sửa từ sau khi xóa dấu cách"
+                   body:@"Khi bạn nhấn dấu cách, VietKi chốt từ vừa gõ lại. Nếu "
+                        @"bấm Backspace ngay sau đó, VietKi khôi phục từ đó để "
+                        @"bạn gõ tiếp dấu thay vì phải gõ lại cả từ.\n\nVí dụ: "
+                        @"nguyen [cách][xóa]x → nguyên\n\nChỉ khôi phục cho đúng "
+                        @"một lần dấu cách + một lần Backspace liên tiếp. Gõ "
+                        @"tiếp, click chuột, đổi cửa sổ hoặc di chuyển con trỏ "
+                        @"sẽ hủy khôi phục."
              relativeTo:sender];
 }
 
@@ -371,36 +384,45 @@ static NSImage* appIconImage() {
                                      action:@selector(onLockHelp:)];
     [tab1View addSubview:lockHelp];
 
+    self.restoreAfterSpaceBox =
+        [self checkbox:@"Tiếp tục sửa từ sau khi xóa dấu cách"
+                    at:NSMakeRect(16, 292, 500, 20)
+                action:@selector(onRestoreAfterSpaceToggle)];
+    [tab1View addSubview:self.restoreAfterSpaceBox];
+    NSButton* restoreHelp = [self helpButtonAt:NSMakeRect(520, 290, 24, 24)
+                                        action:@selector(onRestoreAfterSpaceHelp:)];
+    [tab1View addSubview:restoreHelp];
+
     self.soundGlobalCheck = [self checkbox:@"Âm báo khi đổi E/V"
-                                        at:NSMakeRect(16, 290, 210, 20)
+                                        at:NSMakeRect(16, 266, 210, 20)
                                     action:@selector(onSoundToggle)];
     [tab1View addSubview:self.soundGlobalCheck];
     self.soundExcludedCheck = [self checkbox:@"Âm báo khi đổi V-/V+"
-                                          at:NSMakeRect(240, 290, 210, 20)
+                                          at:NSMakeRect(240, 266, 210, 20)
                                       action:@selector(onSoundToggle)];
     [tab1View addSubview:self.soundExcludedCheck];
 
     self.masterHotkeyCheck = [self checkbox:@""
-                                         at:NSMakeRect(16, 260, 18, 20)
+                                         at:NSMakeRect(16, 236, 18, 20)
                                      action:@selector(onHotkeyChanged)];
     [tab1View addSubview:self.masterHotkeyCheck];
-    [tab1View addSubview:[self label:@"Bật/tắt tiếng Việt" at:NSMakeRect(38, 262, 120, 18)]];
-    self.masterMods = [self modifierChecksAtY:260 inView:tab1View];
-    self.masterKey = [self keyEditAt:NSMakeRect(480, 260, 64, 22)];
+    [tab1View addSubview:[self label:@"Bật/tắt tiếng Việt" at:NSMakeRect(38, 238, 120, 18)]];
+    self.masterMods = [self modifierChecksAtY:236 inView:tab1View];
+    self.masterKey = [self keyEditAt:NSMakeRect(480, 236, 64, 22)];
     [tab1View addSubview:self.masterKey];
 
     self.overrideHotkeyCheck = [self checkbox:@""
-                                           at:NSMakeRect(16, 228, 18, 20)
+                                           at:NSMakeRect(16, 204, 18, 20)
                                        action:@selector(onHotkeyChanged)];
     [tab1View addSubview:self.overrideHotkeyCheck];
-    [tab1View addSubview:[self label:@"Bật V+ app loại trừ" at:NSMakeRect(38, 230, 120, 18)]];
-    self.overrideMods = [self modifierChecksAtY:228 inView:tab1View];
-    self.overrideKey = [self keyEditAt:NSMakeRect(480, 228, 64, 22)];
+    [tab1View addSubview:[self label:@"Bật V+ app loại trừ" at:NSMakeRect(38, 206, 120, 18)]];
+    self.overrideMods = [self modifierChecksAtY:204 inView:tab1View];
+    self.overrideKey = [self keyEditAt:NSMakeRect(480, 204, 64, 22)];
     [tab1View addSubview:self.overrideKey];
 
     // Excluded list.
     NSScrollView* scroll =
-        [[NSScrollView alloc] initWithFrame:NSMakeRect(16, 68, 528, 146)];
+        [[NSScrollView alloc] initWithFrame:NSMakeRect(16, 60, 528, 130)];
     scroll.hasVerticalScroller = YES;
     self.excludedTable = [[NSTableView alloc] initWithFrame:scroll.bounds];
     NSTableColumn* col = [[NSTableColumn alloc] initWithIdentifier:@"bundle"];
@@ -537,7 +559,7 @@ static NSImage* appIconImage() {
     about.editable = NO;
     about.bordered = NO;
     about.drawsBackground = NO;
-    about.stringValue = @"VietKi 0.5 — bộ gõ tiếng Việt";
+    about.stringValue = @"VietKi 0.6 — bộ gõ tiếng Việt";
     [v addSubview:about];
 }
 
@@ -572,6 +594,8 @@ static NSImage* appIconImage() {
                                             : NSControlStateValueOff;
     self.lockCancelBox.state = c.lockWordAfterCancel ? NSControlStateValueOn
                                                      : NSControlStateValueOff;
+    self.restoreAfterSpaceBox.state = c.restoreAfterSpace ? NSControlStateValueOn
+                                                          : NSControlStateValueOff;
     self.soundGlobalCheck.state = c.soundOnGlobalToggle ? NSControlStateValueOn
                                                         : NSControlStateValueOff;
     self.soundExcludedCheck.state = c.soundOnExcludedToggle ? NSControlStateValueOn
@@ -672,6 +696,12 @@ static NSImage* appIconImage() {
 - (void)onLockToggle {
     state().config.lockWordAfterCancel =
         (self.lockCancelBox.state == NSControlStateValueOn);
+    saveConfig(state().config);
+    applyResolvedState();
+}
+- (void)onRestoreAfterSpaceToggle {
+    state().config.restoreAfterSpace =
+        (self.restoreAfterSpaceBox.state == NSControlStateValueOn);
     saveConfig(state().config);
     applyResolvedState();
 }

@@ -35,6 +35,7 @@ struct AppConfig {
     bool enabled = true;            // master VN/EN switch
     bool spellCheck = true;         // Phase 3 E.2 spell checking
     bool lockWordAfterCancel = true; // Phase 4 C.4
+    bool restoreAfterSpace = true;  // Phase 6: restore word after Space+Backspace
     bool autostart = false;
     bool autocompleteFix = true;
     bool soundOnGlobalToggle = true;    // beep when switching E <-> V globally

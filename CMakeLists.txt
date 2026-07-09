@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(VIETKI_MACOS "Build the macOS shell instead of the Windows shell" OFF)
-option(VIETKI_LINUX "Build the Linux/X11 shell" OFF)
+option(VIETKI_LINUX "Build the Linux IBus engine" OFF)
 option(VIETKI_BUILD_TESTS "Build the core unit tests" ON)
 
 # ---------------------------------------------------------------------------
@@ -56,6 +56,7 @@ if(WIN32 AND NOT VIETKI_MACOS)
         windows/src/config.cpp
         windows/src/settings.cpp
         windows/src/overlay.cpp
+        windows/src/typing_stats.cpp
         windows/resources.rc
     )
     target_link_libraries(VietKi PRIVATE vietki_core comctl32 uxtheme ole32
@@ -116,29 +117,20 @@ if(VIETKI_MACOS AND APPLE)
 endif()
 
 # ---------------------------------------------------------------------------
-# Linux shell: an X11 background process. XRecord (passive) keyboard monitor +
-# XTest injection, with an AppIndicator status menu on a GTK main loop.
+# Linux shell: an IBus engine (composition model). This is the only mechanism
+# that works under Wayland, where a process cannot hook/inject another app's
+# keystrokes (PHASE4.1). The core is reused verbatim; the shell renders preedit
+# and commits on a word break.
 # ---------------------------------------------------------------------------
 if(VIETKI_LINUX AND UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(X11 REQUIRED x11)
-    pkg_check_modules(XTST REQUIRED xtst)   # XTest + XRecord live in libXtst
-    pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-    pkg_check_modules(APPINDICATOR REQUIRED ayatana-appindicator3-0.1)
+    pkg_check_modules(IBUS REQUIRED ibus-1.0 glib-2.0 gobject-2.0)
 
-    add_executable(VietKi
+    add_executable(ibus-engine-vietki
         linux/src/main.cpp
-        linux/src/hook.cpp
-        linux/src/injector.cpp
-        linux/src/overlay.cpp
-        linux/src/tray.cpp
+        linux/src/engine_ibus.cpp
     )
-    target_include_directories(VietKi PRIVATE linux/src
-        ${X11_INCLUDE_DIRS} ${XTST_INCLUDE_DIRS}
-        ${GTK3_INCLUDE_DIRS} ${APPINDICATOR_INCLUDE_DIRS})
-    target_link_libraries(VietKi PRIVATE vietki_core
-        ${X11_LIBRARIES} ${XTST_LIBRARIES}
-        ${GTK3_LIBRARIES} ${APPINDICATOR_LIBRARIES})
-    target_compile_options(VietKi PRIVATE
-        ${GTK3_CFLAGS_OTHER} ${APPINDICATOR_CFLAGS_OTHER})
+    target_include_directories(ibus-engine-vietki PRIVATE linux/src ${IBUS_INCLUDE_DIRS})
+    target_link_libraries(ibus-engine-vietki PRIVATE vietki_core ${IBUS_LIBRARIES})
+    target_compile_options(ibus-engine-vietki PRIVATE ${IBUS_CFLAGS_OTHER})
 endif()

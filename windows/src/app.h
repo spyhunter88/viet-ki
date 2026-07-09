@@ -42,6 +42,13 @@ struct AppConfig {
     bool spellCheck = true;         // Phase 3 E.2 spell checking
     // Phase 4 C.4: lock the rest of the word to literal after an explicit cancel.
     bool lockWordAfterCancel = true;
+    // Phase 6: restore the word Space just committed if Backspace follows
+    // immediately, so the user can keep correcting tones (see engine.h).
+    bool restoreAfterSpace = true;
+    // Phase 6 section 7: local-only typing stats (word counts, WPM, backspace
+    // ratio). Off by default; collected data lives in its own file next to
+    // config.ini, never here and never sent anywhere (see typing_stats.h).
+    bool typingStats = false;
     bool autostart = false;
     // When autostart is on, launch elevated via a "highest privileges" logon task
     // instead of the HKCU Run value, so VietKi can drive admin/anti-cheat windows

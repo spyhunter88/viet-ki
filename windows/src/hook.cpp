@@ -2,6 +2,7 @@
 // thread, so it stays light: a snapshot of config lives in AppState and the
 // engine call + SendInput happen inline.
 #include "app.h"
+#include "typing_stats.h"
 
 #include <commctrl.h> // HOTKEYF_* modifier flags
 
@@ -74,9 +75,11 @@ char32_t mapChar(DWORD vk, bool shift, bool caps) {
 }
 
 // Keys that end the current word and reset the engine buffer (guide 3.7).
+// VK_SPACE is handled separately (Engine::onSpace(), Phase 6) so it can cache
+// the committed word for a possible restore on the very next Backspace.
 bool isWordBreakKey(DWORD vk, bool shift) {
     switch (vk) {
-        case VK_SPACE: case VK_TAB: case VK_RETURN:
+        case VK_TAB: case VK_RETURN:
         case VK_LEFT: case VK_RIGHT: case VK_UP: case VK_DOWN:
         case VK_HOME: case VK_END: case VK_PRIOR: case VK_NEXT:
         case VK_ESCAPE: case VK_DELETE: case VK_INSERT:
@@ -210,6 +213,7 @@ LRESULT CALLBACK proc(int nCode, WPARAM wParam, LPARAM lParam) {
     }
 
     if (vk == VK_BACK) {
+        if (st.config.typingStats) recordBackspace();
         if (pasteMode) resetPasteBaseline(); // flush deferred diacritics first
         KeyResult r = eng->onBackspace();
         if (r.swallow) {
@@ -219,7 +223,17 @@ LRESULT CALLBACK proc(int nCode, WPARAM wParam, LPARAM lParam) {
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
 
+    // Phase 6: Space gets its own entry point so it can cache the just-committed
+    // word for a possible restore on the very next Backspace (PHASE6.md 3).
+    if (vk == VK_SPACE) {
+        if (st.config.typingStats) recordWordCommitted(eng->display());
+        if (pasteMode) resetPasteBaseline();
+        eng->onSpace();
+        return CallNextHookEx(nullptr, nCode, wParam, lParam);
+    }
+
     if (isWordBreakKey(vk, shift)) {
+        if (st.config.typingStats) recordWordCommitted(eng->display());
         if (pasteMode) resetPasteBaseline();
         eng->onChar(0, true); // reset buffer; let the break key through
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
@@ -232,6 +246,7 @@ LRESULT CALLBACK proc(int nCode, WPARAM wParam, LPARAM lParam) {
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
 
+    if (st.config.typingStats) recordKeystroke();
     KeyResult r = eng->onChar(ch, false);
     if (pasteMode) {
         // Transforms paste via the clipboard (coalesced); plain ASCII types
