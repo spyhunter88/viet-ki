@@ -92,13 +92,6 @@ codesign --force --deep --sign - build-mac/VietKi.app
 Sau khi chạy lần đầu, hãy cấp quyền **Accessibility** và **Input Monitoring**
 cho VietKi trong *System Settings → Privacy & Security*.
 
-Để đóng gói thành file `.dmg` cho việc chia sẻ:
-
-```sh
-./build-mac-dmg.sh
-```
-
-File tạo ra tại `build-mac/VietKi-<version>.dmg`.
 
 Icon `.icns` đã được commit tại `assets/VietKi.icns`. Chỉ cần tạo lại iconset
 khi thay nguồn ảnh trong `assets/`.
@@ -107,8 +100,7 @@ khi thay nguồn ảnh trong `assets/`.
 
 Trên Linux, VietKi là một **engine IBus** (mô hình composition/preedit) thay vì
 hook toàn cục — đây là cách duy nhất hoạt động được trên **cả X11 lẫn Wayland**,
-vì Wayland không cho một tiến trình chặn/bơm phím của tiến trình khác. Chi tiết
-xem `docs/PHASE4.1.md`.
+vì Wayland không cho một tiến trình chặn/bơm phím của tiến trình khác.
 
 Script sau cài các gói phát triển cần thiết bằng `apt` rồi biên dịch engine:
 
@@ -151,7 +143,6 @@ macos/      CGEventTap, CGEvent/clipboard injection và status bar
 linux/      IBus engine (composition/preedit) bọc core, chạy X11 + Wayland
 tests/      Unit test cho engine và state machine Gaming Mode
 assets/     Icon và tài nguyên giao diện
-docs/       Đặc tả kỹ thuật và ghi chú triển khai
 ```
 
 Engine giữ các phím thô của âm tiết hiện tại, dựng lại toàn bộ kết quả sau mỗi
@@ -161,9 +152,6 @@ phụ thuộc vào thời điểm người dùng gõ phím dấu.
 Các shell hệ điều hành chỉ làm phần tích hợp: bắt phím, xác định app đang focus,
 áp dụng danh sách loại trừ/game, rồi thực thi kết quả engine bằng injection phù
 hợp với nền tảng. Cấu hình được lưu cục bộ và có thể chỉnh tay.
-
-Tài liệu kỹ thuật chi tiết nằm tại [docs/README.md](docs/README.md) và
-[docs/IMPLEMENTATION_GUIDE.md](docs/IMPLEMENTATION_GUIDE.md).
 
 ## ☕ Ủng hộ
 
