@@ -91,6 +91,10 @@ AppState& state();
 // EventTap.mm
 bool startEventTap();
 void stopEventTap();
+// Tahoe: the tap can be silently disabled (timeout, sleep/wake, TCC re-eval)
+// without the disabled-callback firing. Re-enable it, or rebuild it if it has
+// gone inert, so Vietnamese typing recovers without an app restart.
+bool ensureTapAlive();
 
 // Injector.mm
 void injectResult(int backspaces, const std::u32string& commit);

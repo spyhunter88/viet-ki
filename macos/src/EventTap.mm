@@ -322,4 +322,19 @@ void stopEventTap() {
     }
 }
 
+bool ensureTapAlive() {
+    // Healthy tap: nothing to do.
+    if (g_tap && CGEventTapIsEnabled(g_tap)) return true;
+    // Tap exists but is disabled: the cheap recovery is to just re-enable it.
+    if (g_tap) {
+        CGEventTapEnable(g_tap, true);
+        if (CGEventTapIsEnabled(g_tap)) return true;
+    }
+    // Tap is missing or went silently inert (Tahoe race): rebuild from scratch.
+    // Also covers the case where startEventTap() failed earlier because the
+    // Accessibility/Input-Monitoring permission had not been granted yet.
+    stopEventTap();
+    return startEventTap();
+}
+
 } // namespace vietki::mac

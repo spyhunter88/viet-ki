@@ -1024,10 +1024,39 @@ static IconState resolveIcon() {
         @"Accessibility và Input Monitoring, bật VietKi, rồi mở lại.";
     [a runModal];
   }
+
+  // macOS Tahoe (26) can silently disable the CGEventTap — after sleep/wake,
+  // under load, or when TCC re-evaluates code identity — without ever firing
+  // the disabled-callback. A periodic watchdog polls the tap and revives it so
+  // Vietnamese typing recovers on its own instead of forcing an app restart
+  // (the EVKey "không gõ được / Not Responding" symptom).
+  [NSTimer scheduledTimerWithTimeInterval:5.0
+                                  repeats:YES
+                                    block:^(NSTimer *timer) {
+    (void)timer;
+    vietki::mac::ensureTapAlive();
+  }];
+
+  // Re-arm immediately on wake rather than waiting for the next watchdog tick,
+  // and drop any stale composition that spanned the sleep.
+  [[NSWorkspace.sharedWorkspace notificationCenter]
+      addObserver:self
+         selector:@selector(onWake:)
+             name:NSWorkspaceDidWakeNotification
+           object:nil];
+
   openSettings();
 }
 
+- (void)onWake:(NSNotification *)note {
+  (void)note;
+  if (state().engine)
+    state().engine->reset();
+  vietki::mac::ensureTapAlive();
+}
+
 - (void)applicationWillTerminate:(NSNotification *)note {
+  [[NSWorkspace.sharedWorkspace notificationCenter] removeObserver:self];
   stopEventTap();
 }
 
