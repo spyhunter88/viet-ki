@@ -45,6 +45,10 @@ struct AppConfig {
     // Phase 6: restore the word Space just committed if Backspace follows
     // immediately, so the user can keep correcting tones (see engine.h).
     bool restoreAfterSpace = true;
+    // "Fix whole-word completely": order-independent ươ pairing + keep composing
+    // across a Backspace. Auto-suppressed for the current word after >1 Backspace
+    // in a row so unusual sequences can be hand-typed (see engine.h Config).
+    bool fixWholeWord = true;
     // Phase 6 section 7: local-only typing stats (word counts, WPM, backspace
     // ratio). Off by default; collected data lives in its own file next to
     // config.ini, never here and never sent anywhere (see typing_stats.h).
@@ -142,9 +146,11 @@ struct AppState {
     HHOOK keyboardHook = nullptr;
     HHOOK mouseHook = nullptr;       // Phase 4 E.3: reset on mouse button down
     HWINEVENTHOOK focusHook = nullptr;
+    HWINEVENTHOOK focusObjHook = nullptr; // EVENT_OBJECT_FOCUS: omnibox detection
     std::wstring currentApp;        // foreground process .exe name, lower-cased
     HWND currentWindow = nullptr;    // Phase 4 E.3: foreground top-level window
     bool useAutocompleteFix = false; // foreground app needs selection-replace
+    bool omniboxDetect = false;     // Chromium browser: refine fix by focused control
     bool currentModeVN = true;      // resolved Vietnamese state for currentApp
     IconState currentIcon = IconState::V;
     // Per-app override, keyed by .exe name. RAM-only, never persisted (D.2).
@@ -200,6 +206,14 @@ void sendBackspaces(int n);
 // Phase 5 F.4: replay one physical key press (down+up) for the double-trigger
 // escape. The injected events carry LLKHF_INJECTED so the hook ignores them.
 void replayPhysicalKey(UINT vk, UINT scanCode);
+
+// omnibox_probe.cpp — UIA detection of a focused browser address bar. Only the
+// address bar needs the Shift+Left selection-replace fix; web content (Notion,
+// Docs, plain inputs) must use plain Backspace or it accumulates characters.
+bool omniboxFocused();      // hot-path read of the cached verdict (no UIA)
+void updateOmniboxFocus();  // re-evaluate via UIA (message-loop thread only)
+void clearOmniboxFocus();   // reset to "not the omnibox"
+void shutdownOmniboxProbe();
 
 // paste_inject.cpp — per-game Unicode clipboard injection (Phase 5.1 E).
 // Only engine TRANSFORMS (diacritics/tones, r.swallow) are pasted via the

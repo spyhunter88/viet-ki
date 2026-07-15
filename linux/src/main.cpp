@@ -29,7 +29,7 @@ IBusComponent* buildComponent() {
     IBusComponent* component = ibus_component_new(
         kBusName,
         "VietKi",
-        "0.6",
+        "0.6.1",
         "GPL",
         "VietKi",
         "https://github.com/",

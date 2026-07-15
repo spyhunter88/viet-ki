@@ -141,3 +141,7 @@
 #define IDC_GRP_STATS_WORDS 1106
 #define IDC_LIST_TOPWORDS 1107
 #define IDC_BTN_CLEAR_STATS 1108
+// "Fix whole-word completely": order-independent ươ pairing + keep composing
+// across a Backspace (auto-off for a word after >1 Backspace).
+#define IDC_CHECK_FIXWHOLEWORD 1109
+#define IDC_DESC_FIXWHOLEWORD 1110

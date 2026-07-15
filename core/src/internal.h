@@ -65,6 +65,14 @@ SyllableStatus classify(const std::vector<Unit>& units, Tone tone);
 // Compose a single NFC code point from base/mark/tone and case.
 char32_t composeChar(char32_t base, Mark mark, Tone tone, bool upper);
 
+// Reverse of composeChar: split a composed NFC code point into its base letter,
+// mark, tone and case. Returns true for the Vietnamese tone-bearing vowels and
+// đ/Đ; returns false for any other character (which reconstructs to itself).
+// Used by the engine to rebuild the raw key buffer from the on-screen glyphs
+// after a Backspace, so the syllable can keep composing (e.g. "air" -> "ải",
+// Backspace the i -> "ả", then "ir" -> "ải" again).
+bool decomposeChar(char32_t c, char32_t& base, Mark& mark, Tone& tone, bool& upper);
+
 // Choose which vowel (index into the effective vowel cluster) carries the tone.
 int chooseToneIndex(const std::vector<Unit>& vowels, bool hasFinal, bool modern);
 
@@ -76,8 +84,10 @@ std::u32string buildDisplay(const Syllable& syl, bool modern);
 // (E.1); it does NOT decide foreign-word fallback itself. It returns the built
 // syllable, its structural status, and whether the *last* key cancelled a mark.
 // The engine alone owns the Composing -> LiteralLocked transition.
-ProcessResult processTelex(const std::u32string& raw);
-ProcessResult processVni(const std::u32string& raw);
+// fixWholeWord enables the order-independent ươ horn pairing and swallows a
+// redundant tone key instead of leaving it as a stray literal; see Config.
+ProcessResult processTelex(const std::u32string& raw, bool fixWholeWord);
+ProcessResult processVni(const std::u32string& raw, bool fixWholeWord);
 Syllable processPlain(const std::u32string& raw); // literal pass-through (VIQR / locked)
 
 } // namespace vietki

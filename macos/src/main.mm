@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "app.h"
+#include "typing_stats.h"
 
 using namespace vietki;
 using namespace vietki::mac;
@@ -602,6 +603,8 @@ void loadConfig(AppConfig &cfg) {
         cfg.exclusionFeatureOn = parseBool(value, cfg.exclusionFeatureOn);
       else if (keyLower == "revertoverrideonblur")
         cfg.revertOverrideOnBlur = parseBool(value, cfg.revertOverrideOnBlur);
+      else if (keyLower == "typingstats")
+        cfg.typingStats = parseBool(value, cfg.typingStats);
       else if (keyLower == "hotkeysenabled") {
         bool enabled = parseBool(value, true);
         cfg.toggleVietnameseHotkeyEnabled = enabled;
@@ -705,6 +708,7 @@ void saveConfig(const AppConfig &cfg) {
       << "\n";
   out << "exclusionFeatureOn=" << boolText(cfg.exclusionFeatureOn) << "\n";
   out << "revertOverrideOnBlur=" << boolText(cfg.revertOverrideOnBlur) << "\n";
+  out << "typingStats=" << boolText(cfg.typingStats) << "\n";
   out << "toggleVietnameseEnabled="
       << boolText(cfg.toggleVietnameseHotkeyEnabled) << "\n";
   out << "toggleVietnamese=" << cfg.hotkey << "\n";
@@ -1058,6 +1062,7 @@ static IconState resolveIcon() {
 - (void)applicationWillTerminate:(NSNotification *)note {
   [[NSWorkspace.sharedWorkspace notificationCenter] removeObserver:self];
   stopEventTap();
+  vietki::mac::saveTypingStats(); // main thread, safe point for the one disk write
 }
 
 @end

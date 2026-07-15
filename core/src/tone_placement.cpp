@@ -117,6 +117,46 @@ char32_t composeChar(char32_t base, Mark mark, Tone tone, bool upper) {
     return kCompose[form][upper ? 1 : 0][static_cast<int>(tone)];
 }
 
+bool decomposeChar(char32_t c, char32_t& base, Mark& mark, Tone& tone,
+                   bool& upper) {
+    // đ / Đ decompose to a d with a bar and no tone.
+    if (c == 0x0111 || c == 0x0110) {
+        base = U'd';
+        mark = Mark::Bar;
+        tone = Tone::None;
+        upper = (c == 0x0110);
+        return true;
+    }
+    // Reverse-scan the compose table for the vowel forms. All entries are BMP
+    // single code points, so one match is exact.
+    for (int f = 0; f < F_COUNT; ++f) {
+        for (int cs = 0; cs < 2; ++cs) {
+            for (int t = 0; t < 6; ++t) {
+                if (kCompose[f][cs][t] != c) continue;
+                upper = (cs == 1);
+                tone = static_cast<Tone>(t);
+                switch (f) {
+                    case F_A_NONE:  base = U'a'; mark = Mark::None; break;
+                    case F_A_BREVE: base = U'a'; mark = Mark::Breve; break;
+                    case F_A_CIRC:  base = U'a'; mark = Mark::Circumflex; break;
+                    case F_E_NONE:  base = U'e'; mark = Mark::None; break;
+                    case F_E_CIRC:  base = U'e'; mark = Mark::Circumflex; break;
+                    case F_I_NONE:  base = U'i'; mark = Mark::None; break;
+                    case F_O_NONE:  base = U'o'; mark = Mark::None; break;
+                    case F_O_CIRC:  base = U'o'; mark = Mark::Circumflex; break;
+                    case F_O_HORN:  base = U'o'; mark = Mark::Horn; break;
+                    case F_U_NONE:  base = U'u'; mark = Mark::None; break;
+                    case F_U_HORN:  base = U'u'; mark = Mark::Horn; break;
+                    case F_Y_NONE:  base = U'y'; mark = Mark::None; break;
+                    default: return false;
+                }
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 int chooseToneIndex(const std::vector<Unit>& vowels, bool hasFinal, bool modern) {
     const int n = static_cast<int>(vowels.size());
     // 1) Priority to vowels that already carry a diacritic.

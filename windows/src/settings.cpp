@@ -185,6 +185,8 @@ bool isTabPageTextControl(int id) {
         case IDC_DESC_SPELLCHECK:
         case IDC_DESC_LOCKCANCEL:
         case IDC_DESC_RESTOREAFTERSPACE:
+        case IDC_CHECK_FIXWHOLEWORD:
+        case IDC_DESC_FIXWHOLEWORD:
         case IDC_GRP_HOTKEYS:
         case IDC_CHECK_MASTER_HOTKEY:
         case IDC_LABEL_MASTERHK:
@@ -1380,6 +1382,8 @@ void populate(HWND dlg) {
                    c.lockWordAfterCancel ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(dlg, IDC_CHECK_RESTOREAFTERSPACE,
                    c.restoreAfterSpace ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(dlg, IDC_CHECK_FIXWHOLEWORD,
+                   c.fixWholeWord ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(dlg, IDC_CHECK_TYPINGSTATS,
                    c.typingStats ? BST_CHECKED : BST_UNCHECKED);
     refreshStatsDisplay(dlg);
@@ -1418,7 +1422,7 @@ void populate(HWND dlg) {
     updateTriggerWarning(dlg);
     updateGamingEnableState(dlg);
 
-    SetDlgItemTextW(dlg, IDC_ABOUT_TEXT, L"VietKi 0.6 — bộ gõ tiếng Việt");
+    SetDlgItemTextW(dlg, IDC_ABOUT_TEXT, L"VietKi 0.6.1 — bộ gõ tiếng Việt");
     addTooltip(dlg, IDC_CROSSHAIR,
                L"Giữ nút này, kéo/trỏ vào cửa sổ app cần loại trừ, rồi nhả.");
     // Phase 3 D.2 tooltips on the hotkey labels and capture controls.
@@ -1504,6 +1508,7 @@ void saveFromDialog(HWND dlg) {
     c.lockWordAfterCancel = IsDlgButtonChecked(dlg, IDC_CHECK_LOCKCANCEL) != 0;
     c.restoreAfterSpace =
         IsDlgButtonChecked(dlg, IDC_CHECK_RESTOREAFTERSPACE) != 0;
+    c.fixWholeWord = IsDlgButtonChecked(dlg, IDC_CHECK_FIXWHOLEWORD) != 0;
     c.typingStats = IsDlgButtonChecked(dlg, IDC_CHECK_TYPINGSTATS) != 0;
     c.soundOnGlobalToggle = IsDlgButtonChecked(dlg, IDC_CHECK_SOUND_GLOBAL) != 0;
     c.soundOnExcludedToggle =
@@ -1687,6 +1692,7 @@ bool isDirtyControl(int id, int code) {
         case IDC_CHECK_SPELLCHECK:
         case IDC_CHECK_LOCKCANCEL:
         case IDC_CHECK_RESTOREAFTERSPACE:
+        case IDC_CHECK_FIXWHOLEWORD:
         case IDC_CHECK_TYPINGSTATS:
         case IDC_CHECK_SOUND_GLOBAL:
         case IDC_CHECK_SOUND_EXCLUDED:

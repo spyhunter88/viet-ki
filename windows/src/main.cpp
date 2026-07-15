@@ -69,6 +69,20 @@ void CALLBACK focusChanged(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD)
     refreshForegroundApp();
 }
 
+// EVENT_OBJECT_FOCUS: focus moved within (or into) some window. In a Chromium
+// browser the omnibox and web content live in one HWND, so this is the only
+// signal that the caret crossed between the address bar and the page. Re-run the
+// UIA check only for detected browsers (avoids a UIA call on every desktop-wide
+// focus change); everything else is definitively "not the omnibox".
+void CALLBACK objectFocusChanged(HWINEVENTHOOK, DWORD, HWND, LONG, LONG,
+                                 DWORD, DWORD) {
+    // updateOmniboxFocus() reads the true global focus (not this event's object),
+    // so re-evaluating on any focus change in a detected browser is self-correct;
+    // it only runs on focus changes, never on the typing hot path.
+    if (g_state.omniboxDetect) updateOmniboxFocus();
+    else clearOmniboxFocus();
+}
+
 // Look up the current per-app override (None if the app has no entry).
 Override overrideFor(const std::wstring& app) {
     auto it = g_state.perAppOverride.find(app);
@@ -186,7 +200,8 @@ void applyResolvedState() {
                                          g_state.currentModeVN,
                                          g_state.config.spellCheck,
                                          g_state.config.lockWordAfterCancel,
-                                         g_state.config.restoreAfterSpace});
+                                         g_state.config.restoreAfterSpace,
+                                         g_state.config.fixWholeWord});
     // Phase 5.1 E: keep the per-game paste session (clipboard snapshot) warm from
     // the moment the trigger arms — not just once Vietnamese goes active — so the
     // first text key only does a lightweight write + Ctrl+V instead of also taking
@@ -234,6 +249,14 @@ void refreshForegroundApp() {
         g_state.config.autocompleteFix &&
         listContains(g_state.config.autocompleteProcesses, name) &&
         _wcsicmp(name.c_str(), L"excel.exe") != 0;
+    // Chromium browsers render the omnibox and web content in one HWND, so the
+    // Shift+Left autocomplete fix must be refined per focused control via UIA:
+    // apply it only in the address bar, use plain Backspace in web content
+    // (Notion/Docs). Prime the verdict now; EVENT_OBJECT_FOCUS keeps it current.
+    g_state.omniboxDetect = _wcsicmp(name.c_str(), L"chrome.exe") == 0 ||
+                            _wcsicmp(name.c_str(), L"msedge.exe") == 0;
+    if (g_state.omniboxDetect) updateOmniboxFocus();
+    else clearOmniboxFocus();
     applyResolvedState(); // also resets the engine for the new focus (guide 3.7)
     // Phase 5 G.2: announce entering a game under the temporary-trigger policy.
     if (prev != name && gamingAppliesTo(name) &&
@@ -422,7 +445,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int) {
 
     static Engine engine(Config{st.config.method, st.config.tone, st.config.enabled,
                                 st.config.spellCheck, st.config.lockWordAfterCancel,
-                                st.config.restoreAfterSpace});
+                                st.config.restoreAfterSpace, st.config.fixWholeWord});
     st.engine = &engine;
 
     // Resolve the "TaskbarCreated" broadcast so wndProc can re-add the tray icon
@@ -474,6 +497,13 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int) {
     st.focusHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND,
                                    nullptr, focusChanged, 0, 0,
                                    WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+    // Track focus moves within a window too, so the omnibox<->web-content switch
+    // inside a Chromium browser re-runs the UIA address-bar check (main.cpp
+    // objectFocusChanged). Non-fatal if it fails: selectionReplace() then just
+    // keeps the last cached verdict.
+    st.focusObjHook = SetWinEventHook(EVENT_OBJECT_FOCUS, EVENT_OBJECT_FOCUS,
+                                      nullptr, objectFocusChanged, 0, 0,
+                                      WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
     refreshForegroundApp();
     // Only a manual launch opens the Settings window; a logon autostart launch
     // stays in the tray. The tray icon (createTray above) remains the entry point,
@@ -490,6 +520,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int) {
     }
 
     if (st.focusHook) UnhookWinEvent(st.focusHook);
+    if (st.focusObjHook) UnhookWinEvent(st.focusObjHook);
+    shutdownOmniboxProbe();
     removeMouseHook();
     removeKeyboardHook();
     endPasteSession();

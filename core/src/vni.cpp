@@ -171,7 +171,7 @@ bool applyMark(std::vector<Unit>& units, char32_t d, bool consec, bool& cancelle
 
 } // namespace
 
-ProcessResult processVni(const std::u32string& raw) {
+ProcessResult processVni(const std::u32string& raw, bool fixWholeWord) {
     Syllable syl;
     std::vector<Unit>& units = syl.units;
     char32_t prev = 0;
@@ -190,8 +190,16 @@ ProcessResult processVni(const std::u32string& raw) {
                 cancelled = true;
                 pushLiteral(units, ch);
                 handled = true;
+            } else if (syl.tone == tn && fixWholeWord) {
+                // The tone is already set and this is not a consecutive cancel,
+                // so re-typing it changes nothing -> swallow it, exactly as a
+                // redundant modifier digit is swallowed (applyMark). Not pushing
+                // a literal keeps the syllable structure intact so a tone
+                // re-typed while correcting a word does not leak a stray digit
+                // that would shove the mark onto the wrong vowel.
+                handled = true;
             } else if (syl.tone == tn) {
-                // C.7.1 no-op: nothing changes -> keep the digit as a literal.
+                // Whole-word fix off: keep the legacy no-op-as-literal behaviour.
                 pushLiteral(units, ch);
                 handled = true;
             } else {
@@ -221,6 +229,15 @@ ProcessResult processVni(const std::u32string& raw) {
             Unit u;
             u.base = lc;
             u.upper = isUpper(ch);
+            // ư + o typed in this key order still pairs into ươ, matching the
+            // o-before-7 path in applyMark ("uo7" -> "ươ"). Without this, "u7o"
+            // would strand the horn on the u and leave a plain o ("ưo"); here
+            // the fresh o after a horned u takes the horn.
+            if (fixWholeWord && lc == U'o' && !units.empty()) {
+                const Unit& last = units.back();
+                if (last.base == U'u' && last.mark == Mark::Horn && !last.literal)
+                    u.mark = Mark::Horn;
+            }
             units.push_back(u);
         }
         prev = ch;

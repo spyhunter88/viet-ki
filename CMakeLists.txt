@@ -54,6 +54,7 @@ if(WIN32 AND NOT VIETKI_MACOS)
         windows/src/paste_inject.cpp
         windows/src/tray.cpp
         windows/src/config.cpp
+        windows/src/omnibox_probe.cpp
         windows/src/settings.cpp
         windows/src/overlay.cpp
         windows/src/typing_stats.cpp
@@ -97,6 +98,7 @@ if(VIETKI_MACOS AND APPLE)
         macos/src/Injector.mm
         macos/src/Settings.mm
         macos/src/PasteInject.mm
+        macos/src/typing_stats.mm
         ${VIETKI_MAC_ICONS}
     )
     target_link_libraries(VietKi PRIVATE vietki_core

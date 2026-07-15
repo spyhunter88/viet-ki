@@ -134,6 +134,14 @@ bool applyW(std::vector<Unit>& units, char32_t ch, bool consec, bool& cancelled)
                 }
             }
         }
+        // A 'w' with a nucleus that already carries a horn/breve (e.g. the second
+        // 'w' in the canonical "dduwowcj", now that the o auto-paired when typed)
+        // is a redundant no-op, not a request for a fresh ư. Swallow it so it
+        // does not spawn a stray synthetic vowel.
+        for (int i = s; i <= e; ++i) {
+            Mark m = units[i].mark;
+            if (m == Mark::Horn || m == Mark::Breve) return true;
+        }
     }
     // Standalone w -> ư (synthetic). "ww" cancel is handled above via synthetic.
     Unit u;
@@ -196,7 +204,7 @@ bool applyDBar(std::vector<Unit>& units, char32_t ch, bool consec, bool& cancell
 
 } // namespace
 
-ProcessResult processTelex(const std::u32string& raw) {
+ProcessResult processTelex(const std::u32string& raw, bool fixWholeWord) {
     Syllable syl;
     std::vector<Unit>& units = syl.units;
     char32_t prev = 0;
@@ -217,10 +225,17 @@ ProcessResult processTelex(const std::u32string& raw) {
                 cancelled = true;
                 pushLiteral(units, ch); // double-tap cancels -> literal letter
                 handled = true;
+            } else if (syl.tone == tn && fixWholeWord) {
+                // The tone is already set and this is not a consecutive cancel,
+                // so re-typing it changes nothing -> swallow it, exactly as a
+                // redundant mark key is swallowed (applyW / applyCircumflex).
+                // Not pushing a literal keeps the syllable structure intact so a
+                // tone re-typed while correcting a word (e.g. after Backspace,
+                // "air" -> "ải" -> Backspace -> "ir") does not leak a stray
+                // consonant that would shove the mark onto the wrong vowel.
+                handled = true;
             } else if (syl.tone == tn) {
-                // C.7.1 no-op: the tone is already set and this is not a cancel,
-                // so nothing changes -> keep the key as a literal letter (pushed
-                // literal so spell check skips it and earlier marks are kept).
+                // Whole-word fix off: keep the legacy no-op-as-literal behaviour.
                 pushLiteral(units, ch);
                 handled = true;
             } else {
@@ -252,6 +267,15 @@ ProcessResult processTelex(const std::u32string& raw) {
             Unit u;
             u.base = lc;
             u.upper = up;
+            // ư + o typed in this key order still pairs into ươ, matching the
+            // o-before-w path in applyW ("uow" -> "ươ"). Without this, "uwo"
+            // (or "dduwjoc") would strand the horn on the u and leave a plain o
+            // ("ưo", "đựoc"); here the fresh o after a horned u takes the horn.
+            if (fixWholeWord && lc == U'o' && !units.empty()) {
+                const Unit& last = units.back();
+                if (last.base == U'u' && last.mark == Mark::Horn && !last.literal)
+                    u.mark = Mark::Horn;
+            }
             units.push_back(u);
         }
         prev = ch;

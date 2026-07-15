@@ -49,6 +49,16 @@ struct Config {
     // click, focus change, caret movement, a non-Space word break), drops the
     // cache. When false, Backspace after Space behaves exactly as before.
     bool restoreAfterSpace = true;
+    // "Fix whole-word completely": keep the whole syllable coherent regardless of
+    // key order and across edits. It (a) pairs the ươ horn no matter whether the
+    // horn key comes before or after the o ("uwo"/"đựoc" auto-fix to "ươ"/"được")
+    // and (b) rebuilds the composition after a Backspace so re-typing re-places
+    // tones on the whole cluster ("air" -> "ải" -> Backspace -> "ir" -> "ải").
+    // The engine also turns this off for the current word once the user presses
+    // Backspace more than once in a row, so an intentional oddity (e.g. repeated
+    // tone marks "ảảảả") can be typed by hand. When false, both behaviours are
+    // off for every word.
+    bool fixWholeWord = true;
 };
 
 // Result of feeding one key to the engine, for the OS shell to execute.
@@ -97,10 +107,23 @@ public:
 private:
     KeyResult emitDiff(const std::u32string& next, char32_t ch);
 
+    // Rebuild the raw key buffer from the glyphs still on screen after a
+    // Backspace so the syllable can keep composing. For a Composing Telex/VNI
+    // word each glyph is decomposed back into its keystrokes ("ả" -> "ar");
+    // locked or VIQR text is already literal and reconstructs to itself.
+    std::u32string reconstructRaw(const std::u32string& display) const;
+
     Config cfg_;
     std::u32string raw_;     // printable keys typed for the current syllable
     std::u32string display_; // what is currently shown on screen for this syllable
     CompositionMode mode_ = CompositionMode::Composing; // Phase 4 D
+
+    // "Fix whole-word" per-word escape hatch: once the user presses Backspace
+    // more than once in a row, the whole-word fix is suppressed for the rest of
+    // the current word so they can hand-place an unusual sequence. Both reset on
+    // any word/context break (reset()) and the counter clears on the next key.
+    bool wordFixOverride_ = false;
+    int consecutiveBackspaces_ = 0;
 
     // Phase 6: one-shot cache of the word Space just committed, consumed by the
     // very next onBackspace() if nothing else touched the engine in between.

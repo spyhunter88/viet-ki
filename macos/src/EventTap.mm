@@ -5,6 +5,7 @@
 #import <Carbon/Carbon.h>
 
 #include "app.h"
+#include "typing_stats.h"
 
 namespace vietki::mac {
 
@@ -239,6 +240,7 @@ CGEventRef callback(CGEventTapProxy, CGEventType type, CGEventRef event, void*) 
     }
 
     if (kc == kVK_Delete) { // Backspace
+        if (st.config.typingStats) recordBackspace();
         if (pasteMode) resetPasteBaseline();
         KeyResult r = eng->onBackspace();
         if (r.swallow) {
@@ -255,12 +257,14 @@ CGEventRef callback(CGEventTapProxy, CGEventType type, CGEventRef event, void*) 
     // Phase 6: Space gets its own entry point so it can cache the just-committed
     // word for a possible restore on the very next Backspace (PHASE6.md 3).
     if (kc == kVK_Space) {
+        if (st.config.typingStats) recordWordCommitted(eng->display());
         if (pasteMode) resetPasteBaseline();
         eng->onSpace();
         return event;
     }
 
     if (isWordBreakKeycode(kc)) {
+        if (st.config.typingStats) recordWordCommitted(eng->display());
         if (pasteMode) resetPasteBaseline();
         eng->onChar(0, true); // reset; let the key through
         return event;
@@ -270,12 +274,14 @@ CGEventRef callback(CGEventTapProxy, CGEventType type, CGEventRef event, void*) 
     char32_t ch = mapChar(event, punctBreak);
     if (ch == 0) {
         if (punctBreak) {
+            if (st.config.typingStats) recordWordCommitted(eng->display());
             if (pasteMode) resetPasteBaseline();
             eng->onChar(0, true);
         }
         return event;
     }
 
+    if (st.config.typingStats) recordKeystroke();
     KeyResult r = eng->onChar(ch, false);
     if (pasteMode) {
         if (pasteHandleKey(eng->display(), r.swallow)) {

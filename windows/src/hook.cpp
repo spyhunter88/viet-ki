@@ -23,6 +23,17 @@ BYTE currentHotkeyMods() {
     return m;
 }
 
+// Decide whether this injection uses the Shift+Left selection-replace path
+// (needed to swallow the browser omnibox's inline autocomplete) or plain
+// Backspace. In a Chromium browser the fix is only correct in the address bar;
+// web content (Notion, Docs, plain inputs) corrupts under selection-replace, so
+// there we fall back to plain Backspace based on the UIA focus verdict.
+bool selectionReplace(const AppState& st) {
+    if (!st.useAutocompleteFix) return false;
+    if (st.omniboxDetect) return omniboxFocused();
+    return true; // non-Chromium browser (e.g. Firefox): keep legacy behavior
+}
+
 bool g_overrideHeld = false;       // de-bounce auto-repeat of the override hotkey
 bool g_masterHeld = false;         // de-bounce auto-repeat of a combo master hotkey
 
@@ -217,7 +228,7 @@ LRESULT CALLBACK proc(int nCode, WPARAM wParam, LPARAM lParam) {
         if (pasteMode) resetPasteBaseline(); // flush deferred diacritics first
         KeyResult r = eng->onBackspace();
         if (r.swallow) {
-            injectResult(r.backspaces, r.commit, st.useAutocompleteFix);
+            injectResult(r.backspaces, r.commit, selectionReplace(st));
             return 1; // swallow original Backspace
         }
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
@@ -255,7 +266,7 @@ LRESULT CALLBACK proc(int nCode, WPARAM wParam, LPARAM lParam) {
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
     if (r.swallow) {
-        injectResult(r.backspaces, r.commit, st.useAutocompleteFix);
+        injectResult(r.backspaces, r.commit, selectionReplace(st));
         return 1; // swallow the original key
     }
     // Plain append of the typed (ASCII) key: let the OS deliver it natively.

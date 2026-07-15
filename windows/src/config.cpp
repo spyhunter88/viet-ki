@@ -354,6 +354,8 @@ void loadConfig(AppConfig& cfg) {
                 cfg.lockWordAfterCancel = parseBool(value, cfg.lockWordAfterCancel);
             else if (keyLower == L"restoreafterspace" || keyLower == L"restore_after_space")
                 cfg.restoreAfterSpace = parseBool(value, cfg.restoreAfterSpace);
+            else if (keyLower == L"fixwholeword" || keyLower == L"fix_whole_word")
+                cfg.fixWholeWord = parseBool(value, cfg.fixWholeWord);
             else if (keyLower == L"typingstats" || keyLower == L"typing_stats")
                 cfg.typingStats = parseBool(value, cfg.typingStats);
             else if (keyLower == L"autostart")
@@ -475,6 +477,9 @@ void saveConfig(const AppConfig& cfg) {
     out << "lockWordAfterCancel=" << boolText(cfg.lockWordAfterCancel) << "\n";
     out << "; After Space commits a word, restore it if Backspace follows right away.\n";
     out << "restore_after_space=" << boolText(cfg.restoreAfterSpace) << "\n";
+    out << "; Fix whole-word completely: order-independent ươ pairing + keep\n";
+    out << "; composing across a Backspace. Auto-off for a word after >1 Backspace.\n";
+    out << "fix_whole_word=" << boolText(cfg.fixWholeWord) << "\n";
     out << "; Local-only typing stats (word counts, WPM, backspace ratio). See\n";
     out << "; typing_stats.dat next to this file; never sent anywhere.\n";
     out << "typing_stats=" << boolText(cfg.typingStats) << "\n";

@@ -6,7 +6,7 @@
   <name>org.freedesktop.IBus.VietKi</name>
   <description>VietKi - bo go tieng Viet</description>
   <exec>/usr/lib/ibus-vietki/ibus-engine-vietki --ibus</exec>
-  <version>0.6</version>
+  <version>0.6.1</version>
   <author>VietKi</author>
   <license>GPL</license>
   <homepage>https://github.com/</homepage>

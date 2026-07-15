@@ -39,7 +39,7 @@ BEGIN
     AUTORADIOBUTTON "VNI", IDC_RADIO_VNI, 11, 62, 90, 10
     AUTORADIOBUTTON "Dấu kiểu mới", IDC_RADIO_TONE_MODERN, 151, 48, 110, 10, WS_GROUP | WS_TABSTOP
     AUTORADIOBUTTON "Dấu kiểu cũ", IDC_RADIO_TONE_OLD, 151, 62, 110, 10
-    GROUPBOX        "Xử lý từ và thao tác hủy", IDC_GRP_SPELL, 4, 86, 304, 116
+    GROUPBOX        "Xử lý từ và thao tác hủy", IDC_GRP_SPELL, 4, 86, 304, 146
     AUTOCHECKBOX    "Kiểm tra và khôi phục từ không phải tiếng Việt", IDC_CHECK_SPELLCHECK, 11, 100, 264, 10
     LTEXT           "ⓘ", IDC_HELP_SPELLCHECK, 279, 97, 18, 16, SS_NOTIFY | SS_CENTER
     LTEXT           "Tự trả lại phím gốc khi chuỗi không thể là âm tiết tiếng Việt.", IDC_DESC_SPELLCHECK, 21, 112, 276, 9
@@ -49,6 +49,8 @@ BEGIN
     AUTOCHECKBOX    "Tiếp tục sửa từ sau khi xóa dấu cách", IDC_CHECK_RESTOREAFTERSPACE, 11, 162, 264, 10
     LTEXT           "ⓘ", IDC_HELP_RESTOREAFTERSPACE, 279, 159, 18, 16, SS_NOTIFY | SS_CENTER
     LTEXT           "Bấm Backspace ngay sau dấu cách để quay lại sửa dấu của từ vừa gõ.", IDC_DESC_RESTOREAFTERSPACE, 21, 174, 276, 9
+    AUTOCHECKBOX    "Sửa nguyên từ (ghép ươ và giữ mạch sửa dấu)", IDC_CHECK_FIXWHOLEWORD, 11, 196, 264, 10
+    LTEXT           "Ghép ươ dù gõ w trước/sau chữ o, và giữ mạch sửa dấu khi Backspace. Tự tắt cho từ đang gõ nếu bấm Backspace liên tiếp.", IDC_DESC_FIXWHOLEWORD, 21, 208, 280, 18
 END
 
 IDD_SETTINGS_HOTKEYS DIALOGEX 0, 0, 304, 238
@@ -146,8 +148,8 @@ BEGIN
 END
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,6,0,0
- PRODUCTVERSION 0,6,0,0
+ FILEVERSION 0,6,1,0
+ PRODUCTVERSION 0,6,1,0
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS VOS_NT_WINDOWS32
@@ -160,11 +162,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "VietKi"
             VALUE "FileDescription", "VietKi Vietnamese input method"
-            VALUE "FileVersion", "0.6.0.0"
+            VALUE "FileVersion", "0.6.1.0"
             VALUE "InternalName", "VietKi"
             VALUE "OriginalFilename", "VietKi.exe"
             VALUE "ProductName", "VietKi"
-            VALUE "ProductVersion", "0.6.0.0"
+            VALUE "ProductVersion", "0.6.1.0"
         END
     END
     BLOCK "VarFileInfo"

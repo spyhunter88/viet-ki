@@ -42,6 +42,7 @@ struct AppConfig {
     bool soundOnExcludedToggle = true;  // beep when switching V- <-> V+ in excluded app
     bool exclusionFeatureOn = true;       // Phase 2 D.2
     bool revertOverrideOnBlur = false;    // Phase 2 D.4
+    bool typingStats = false;             // Phase 6 section 7: local-only typing stats
     std::string hotkey = "Ctrl+Shift";
     bool toggleVietnameseHotkeyEnabled = true;
     // Default override: Ctrl+Option+Space (kVK_Space = 49).

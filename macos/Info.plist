@@ -8,11 +8,11 @@
     <key>CFBundleDisplayName</key>
     <string>VietKi</string>
     <key>CFBundleIdentifier</key>
-    <string>com.linhnh295.vietki</string>
+    <string>com.linhnh285.vietki</string>
     <key>CFBundleVersion</key>
-    <string>0.6</string>
+    <string>0.6.1</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.6</string>
+    <string>0.6.1</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>

@@ -181,9 +181,119 @@ TEST_CASE("Backspace removes the last character") {
     CHECK(screen == U"đượ"); // last character removed, tone on ơ preserved
     backspace();
     CHECK(screen == U"đư");
-    // Buffer was reset, so typing continues as a fresh syllable.
+    // The syllable keeps composing after a Backspace, so re-typing continues the
+    // remaining word instead of starting fresh.
     feed(U'a');
     CHECK(screen == U"đưa");
+}
+
+// After deleting a glyph the engine rebuilds the raw buffer from what is left,
+// so re-typing re-places the tone on the whole cluster instead of treating the
+// new keys as a fresh syllable. Regression for "air" -> Backspace -> "ir".
+TEST_CASE("Backspace keeps composing the rest of the syllable") {
+    Engine e(Config{Method::Telex, TonePlacement::Modern, true});
+    std::u32string screen;
+    auto feed = [&](char32_t c) {
+        KeyResult r = e.onChar(c, false);
+        if (r.swallow) {
+            for (int i = 0; i < r.backspaces && !screen.empty(); ++i) screen.pop_back();
+            screen += r.commit;
+        } else {
+            screen.push_back(c);
+        }
+    };
+    auto backspace = [&]() {
+        KeyResult r = e.onBackspace();
+        if (r.swallow) {
+            for (int i = 0; i < r.backspaces && !screen.empty(); ++i) screen.pop_back();
+            screen += r.commit;
+        } else if (!screen.empty()) {
+            screen.pop_back();
+        }
+    };
+
+    for (char32_t c : std::u32string(U"air")) feed(c);
+    CHECK(screen == U"ải");
+    backspace();               // delete the i; the hook stays on the a
+    CHECK(screen == U"ả");
+    feed(U'i');
+    CHECK(screen == U"ải");     // i re-added, tone re-placed on the a (not "aỉ")
+    feed(U'r');                 // redundant hook: a no-op, not a stray coda
+    CHECK(screen == U"ải");
+}
+
+// A horned diphthong survives the delete-and-retype round-trip too.
+TEST_CASE("Backspace keeps the horn on a ươ diphthong") {
+    Engine e(Config{Method::Telex, TonePlacement::Modern, true});
+    std::u32string screen;
+    auto feed = [&](char32_t c) {
+        KeyResult r = e.onChar(c, false);
+        if (r.swallow) {
+            for (int i = 0; i < r.backspaces && !screen.empty(); ++i) screen.pop_back();
+            screen += r.commit;
+        } else {
+            screen.push_back(c);
+        }
+    };
+    auto backspace = [&]() {
+        KeyResult r = e.onBackspace();
+        if (r.swallow) {
+            for (int i = 0; i < r.backspaces && !screen.empty(); ++i) screen.pop_back();
+            screen += r.commit;
+        } else if (!screen.empty()) {
+            screen.pop_back();
+        }
+    };
+
+    for (char32_t c : std::u32string(U"dduwowcj")) feed(c);
+    CHECK(screen == U"được");
+    backspace();               // "được" -> "đượ"
+    CHECK(screen == U"đượ");
+    feed(U'c');
+    CHECK(screen == U"được");   // coda re-added, tone still on the ơ
+    feed(U'j');                 // redundant dot: a no-op
+    CHECK(screen == U"được");
+}
+
+// Pressing Backspace more than once in a row suppresses the whole-word fix for
+// the rest of that word, so the user can hand-place an unusual sequence. A word
+// break re-arms it.
+TEST_CASE("Repeated Backspace suppresses the whole-word fix for that word") {
+    Engine e(Config{Method::Telex, TonePlacement::Modern, true});
+    std::u32string screen;
+    auto feed = [&](char32_t c) {
+        KeyResult r = e.onChar(c, false);
+        if (r.swallow) {
+            for (int i = 0; i < r.backspaces && !screen.empty(); ++i) screen.pop_back();
+            screen += r.commit;
+        } else {
+            screen.push_back(c);
+        }
+    };
+    auto backspace = [&]() {
+        KeyResult r = e.onBackspace();
+        if (r.swallow) {
+            for (int i = 0; i < r.backspaces && !screen.empty(); ++i) screen.pop_back();
+            screen += r.commit;
+        } else if (!screen.empty()) {
+            screen.pop_back();
+        }
+    };
+
+    for (char32_t c : std::u32string(U"air")) feed(c);
+    CHECK(screen == U"ải");
+    backspace();               // 1st: fix on, reconstructs -> "ả"
+    CHECK(screen == U"ả");
+    backspace();               // 2nd in a row: fix suppressed, legacy clear
+    CHECK(screen == U"");
+    // The fix stays off until the word breaks: eager ươ pairing no longer runs.
+    for (char32_t c : std::u32string(U"uwo")) feed(c);
+    CHECK(screen == U"ưo");
+
+    e.reset();                 // a word / context break re-arms the fix
+    screen.clear();
+    for (char32_t c : std::u32string(U"uwo")) feed(c);
+    CHECK(screen == U"ươ");
 }
 
 // Section E.1/E.2/E.3: tones and transforms target the right component even
@@ -195,6 +305,36 @@ TEST_CASE("Non-adjacent transforms (E.1)") {
     CHECK(telex(U"uuw") == U"ưu");       // horn targets the u in the uu cluster
     CHECK(telex(U"ddonw") == U"đơn");    // horn reaches o past the n
     CHECK(telex(U"tooi") == U"tôi");     // circumflex then a trailing vowel
+}
+
+// The horn that forms the ươ diphthong must pair both vowels regardless of the
+// order the keys are typed: "uow" (o before the horn) already worked, and now
+// "uwo" (horn before the o) does too, so a mistyped "đựoc" auto-fixes to "được".
+TEST_CASE("Horn pairing is order-independent (uwo -> ươ)") {
+    CHECK(telex(U"uow") == U"ươ");
+    CHECK(telex(U"uwo") == U"ươ");
+    CHECK(telex(U"dduwowcj") == U"được"); // canonical (already passing)
+    CHECK(telex(U"dduwocj") == U"được");  // horn before the o
+    CHECK(telex(U"dduwjoc") == U"được");  // tone wedged in before the o
+    CHECK(telex(U"nuwocs") == U"nước");
+    CHECK(telex(U"chuwa") == U"chưa");    // ưa must NOT gain a horn on the a
+    CHECK(telex(U"huwu") == U"hưu");      // ưu must NOT gain a horn on the u
+    // VNI mirrors the same pairing (digit 7 is the horn).
+    CHECK(vni(U"u7o") == U"ươ");
+    CHECK(vni(U"d9u7oc5") == U"được");
+}
+
+// With "Fix whole-word" off, the order-independent pairing is gone (legacy
+// behaviour) but the canonical two-key spellings still work.
+TEST_CASE("fixWholeWord=off restores legacy horn behaviour") {
+    // Config: {method, tone, enabled, spellCheck, lockWordAfterCancel,
+    //          restoreAfterSpace, fixWholeWord}.
+    Config off{Method::Telex, TonePlacement::Modern, true, true, true, true, false};
+    CHECK(runConfig(off, U"uwo") == U"ưo");        // no eager horn pairing
+    CHECK(runConfig(off, U"uow") == U"ươ");        // o-before-w still pairs
+    CHECK(runConfig(off, U"dduwowcj") == U"được"); // canonical unaffected
+    Config on{Method::Telex, TonePlacement::Modern, true, true, true, true, true};
+    CHECK(runConfig(on, U"uwo") == U"ươ");         // default: pairing on
 }
 
 TEST_CASE("Spell check / foreign words (E.2, E.3)") {

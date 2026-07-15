@@ -3,6 +3,7 @@
 #import <ApplicationServices/ApplicationServices.h>
 
 #include "app.h"
+#include "typing_stats.h"
 
 using namespace vietki;
 using namespace vietki::mac;
@@ -78,7 +79,7 @@ using namespace vietki::mac;
 
 @interface VietKiSettingsController
     : NSObject <NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate,
-                NSTextFieldDelegate>
+                NSTextFieldDelegate, NSTabViewDelegate>
 @property(strong) NSWindow* window;
 @property(strong) NSTabView* tabView;
 @property(strong) NSTableView* excludedTable;
@@ -116,6 +117,11 @@ using namespace vietki::mac;
 @property(strong) NSButton* removeButton;
 @property(strong) NSButton* removeGameButton;
 @property(strong) NSButton* removePasteButton;
+
+// Phase 6 section 7: "Thống kê" (typing stats) tab.
+@property(strong) NSButton* typingStatsCheck;
+@property(strong) NSTextField* statsSummaryLabel;
+@property(strong) NSTableView* statsWordsTable;
 @end
 
 static VietKiSettingsController* g_settings = nil;
@@ -125,7 +131,9 @@ static NSImage* appIconImage() {
     return path ? [[NSImage alloc] initWithContentsOfFile:path] : nil;
 }
 
-@implementation VietKiSettingsController
+@implementation VietKiSettingsController {
+    std::vector<vietki::mac::WordCount> _statsWords;
+}
 
 - (NSButton*)checkbox:(NSString*)title at:(NSRect)f action:(SEL)sel {
     NSButton* b = [[NSButton alloc] initWithFrame:f];
@@ -222,6 +230,17 @@ static NSImage* appIconImage() {
                         @"một lần dấu cách + một lần Backspace liên tiếp. Gõ "
                         @"tiếp, click chuột, đổi cửa sổ hoặc di chuyển con trỏ "
                         @"sẽ hủy khôi phục."
+             relativeTo:sender];
+}
+
+- (void)onTypingStatsHelp:(id)sender {
+    [self showHelpTitle:@"Thống kê gõ phím"
+                   body:@"Đếm số từ đã gõ, ước tính tốc độ gõ (WPM) và tỷ lệ dùng "
+                        @"Backspace, để bạn tự theo dõi thói quen gõ của mình."
+                        @"\n\nDữ liệu chỉ lưu trong tệp typing_stats.dat trong "
+                        @"~/Library/Application Support/VietKi. Không gửi đi đâu, "
+                        @"không kèm trong config.ini, không dùng cho quảng cáo."
+                        @"\n\nBấm “Xoá toàn bộ dữ liệu” để xoá sạch bất cứ lúc nào."
              relativeTo:sender];
 }
 
@@ -551,15 +570,73 @@ static NSImage* appIconImage() {
     self.removePasteButton.action = @selector(onRemovePaste);
     [tab2View addSubview:self.removePasteButton];
 
+    // --- TAB 3: THỐNG KÊ ---
+    NSTabViewItem* tab3 = [[NSTabViewItem alloc] initWithIdentifier:@"stats"];
+    tab3.label = @"Thống kê";
+    NSView* tab3View = [[NSView alloc] initWithFrame:self.tabView.bounds];
+    tab3.view = tab3View;
+
+    self.typingStatsCheck =
+        [self checkbox:@"Bật thu thập thống kê gõ phím"
+                    at:NSMakeRect(16, 442, 300, 20)
+                action:@selector(onTypingStatsToggle)];
+    [tab3View addSubview:self.typingStatsCheck];
+    NSButton* statsHelp = [self helpButtonAt:NSMakeRect(520, 440, 24, 24)
+                                      action:@selector(onTypingStatsHelp:)];
+    [tab3View addSubview:statsHelp];
+
+    NSTextField* statsDesc =
+        [self label:@"Chỉ lưu trên máy, không gửi đi đâu. Tắt = không thu thập, "
+                    @"không ghi tệp."
+                  at:NSMakeRect(16, 420, 500, 18)];
+    statsDesc.textColor = [NSColor secondaryLabelColor];
+    statsDesc.font = [NSFont systemFontOfSize:11];
+    [tab3View addSubview:statsDesc];
+
+    [tab3View addSubview:[self label:@"Tổng quan:" at:NSMakeRect(16, 388, 200, 18)]];
+    self.statsSummaryLabel =
+        [self label:@"" at:NSMakeRect(16, 330, 528, 54)];
+    self.statsSummaryLabel.font = [NSFont systemFontOfSize:12];
+    self.statsSummaryLabel.cell.wraps = YES;
+    self.statsSummaryLabel.maximumNumberOfLines = 0;
+    [tab3View addSubview:self.statsSummaryLabel];
+
+    [tab3View addSubview:[self label:@"Từ hay gõ nhất:" at:NSMakeRect(16, 300, 200, 18)]];
+    NSScrollView* scrollStats =
+        [[NSScrollView alloc] initWithFrame:NSMakeRect(16, 60, 528, 234)];
+    scrollStats.hasVerticalScroller = YES;
+    self.statsWordsTable = [[NSTableView alloc] initWithFrame:scrollStats.bounds];
+    NSTableColumn* colWord = [[NSTableColumn alloc] initWithIdentifier:@"statsWord"];
+    colWord.title = @"Từ";
+    colWord.width = 400;
+    [self.statsWordsTable addTableColumn:colWord];
+    NSTableColumn* colCount = [[NSTableColumn alloc] initWithIdentifier:@"statsCount"];
+    colCount.title = @"Số lần";
+    colCount.width = 100;
+    [self.statsWordsTable addTableColumn:colCount];
+    self.statsWordsTable.dataSource = self;
+    self.statsWordsTable.delegate = self;
+    scrollStats.documentView = self.statsWordsTable;
+    [tab3View addSubview:scrollStats];
+
+    NSButton* clearStats = [[NSButton alloc] initWithFrame:NSMakeRect(16, 24, 160, 28)];
+    clearStats.title = @"Xoá toàn bộ dữ liệu";
+    clearStats.bezelStyle = NSBezelStyleRounded;
+    clearStats.target = self;
+    clearStats.action = @selector(onClearStats);
+    [tab3View addSubview:clearStats];
+
     [self.tabView addTabViewItem:tab1];
     [self.tabView addTabViewItem:tab2];
+    [self.tabView addTabViewItem:tab3];
+    self.tabView.delegate = self;
     [v addSubview:self.tabView];
 
     NSTextField* about = [[NSTextField alloc] initWithFrame:NSMakeRect(16, 12, 548, 20)];
     about.editable = NO;
     about.bordered = NO;
     about.drawsBackground = NO;
-    about.stringValue = @"VietKi 0.6 — bộ gõ tiếng Việt";
+    about.stringValue = @"VietKi 0.6.1 — bộ gõ tiếng Việt";
     [v addSubview:about];
 }
 
@@ -600,6 +677,9 @@ static NSImage* appIconImage() {
                                                         : NSControlStateValueOff;
     self.soundExcludedCheck.state = c.soundOnExcludedToggle ? NSControlStateValueOn
                                                            : NSControlStateValueOff;
+    self.typingStatsCheck.state = c.typingStats ? NSControlStateValueOn
+                                                : NSControlStateValueOff;
+    [self refreshStatsDisplay];
     self.masterHotkeyCheck.state = c.toggleVietnameseHotkeyEnabled ? NSControlStateValueOn
                                                                    : NSControlStateValueOff;
     self.overrideHotkeyCheck.state = c.overrideHotkeyEnabled ? NSControlStateValueOn
@@ -627,6 +707,34 @@ static NSImage* appIconImage() {
     [self updateRemoveButtonStates];
 }
 
+// Pull the latest counters and repaint the summary text + top-words list.
+// Read-only: this never feeds back into AppConfig.
+- (void)refreshStatsDisplay {
+    vietki::mac::TypingStatsSnapshot s = vietki::mac::typingStatsSnapshot(50);
+    _statsWords = s.topWords;
+
+    self.statsSummaryLabel.stringValue = [NSString
+        stringWithFormat:@"Tổng số từ đã gõ: %lld\nTốc độ gõ trung bình: %.0f WPM\n"
+                         @"Tỷ lệ dùng Backspace: %.1f%%",
+                         s.totalWords, s.wpm, s.backspaceRatioPct];
+    [self.statsWordsTable reloadData];
+}
+
+- (NSString*)nsStringFromU32:(const std::u32string&)text {
+    std::vector<unichar> out;
+    out.reserve(text.size());
+    for (char32_t c : text) {
+        if (c <= 0xFFFF) {
+            out.push_back((unichar)c);
+        } else {
+            char32_t v = c - 0x10000;
+            out.push_back((unichar)(0xD800 + (v >> 10)));
+            out.push_back((unichar)(0xDC00 + (v & 0x3FF)));
+        }
+    }
+    return [NSString stringWithCharacters:out.data() length:out.size()];
+}
+
 // --- table data source ---
 - (NSInteger)numberOfRowsInTableView:(NSTableView*)t {
     if (t == self.excludedTable) {
@@ -635,6 +743,8 @@ static NSImage* appIconImage() {
         return (NSInteger)state().config.gamingBundles.size();
     } else if (t == self.gamingPasteTable) {
         return (NSInteger)state().config.gamingPasteBundles.size();
+    } else if (t == self.statsWordsTable) {
+        return (NSInteger)_statsWords.size();
     }
     return 0;
 }
@@ -657,6 +767,12 @@ static NSImage* appIconImage() {
     } else if (t == self.gamingPasteTable) {
         if (row < 0 || row >= (NSInteger)st.config.gamingPasteBundles.size()) return @"";
         return @(st.config.gamingPasteBundles[row].c_str());
+    } else if (t == self.statsWordsTable) {
+        if (row < 0 || row >= (NSInteger)_statsWords.size()) return @"";
+        const vietki::mac::WordCount& wc = _statsWords[row];
+        if ([col.identifier isEqualToString:@"statsCount"])
+            return [NSString stringWithFormat:@"%lld", wc.count];
+        return [self nsStringFromU32:wc.word];
     }
     return @"";
 }
@@ -712,6 +828,24 @@ static NSImage* appIconImage() {
         (self.soundExcludedCheck.state == NSControlStateValueOn);
     saveConfig(state().config);
 }
+- (void)onTypingStatsToggle {
+    state().config.typingStats = (self.typingStatsCheck.state == NSControlStateValueOn);
+    saveConfig(state().config);
+}
+- (void)onClearStats {
+    NSAlert* a = [[NSAlert alloc] init];
+    a.messageText = @"Xoá thống kê";
+    a.informativeText =
+        @"Xoá toàn bộ dữ liệu thống kê gõ phím đã lưu? Không thể hoàn tác.";
+    a.alertStyle = NSAlertStyleWarning;
+    [a addButtonWithTitle:@"Xoá"];
+    [a addButtonWithTitle:@"Huỷ"];
+    if ([a runModal] == NSAlertFirstButtonReturn) {
+        vietki::mac::clearTypingStats();
+        [self refreshStatsDisplay];
+    }
+}
+
 - (void)onHotkeyChanged {
     Hotkey master = [self hotkeyFromMods:self.masterMods
                                      key:self.masterKey
@@ -827,8 +961,13 @@ static NSImage* appIconImage() {
     applyResolvedState();
 }
 
+- (void)tabView:(NSTabView*)tabView didSelectTabViewItem:(NSTabViewItem*)item {
+    if ([item.identifier isEqual:@"stats"]) [self refreshStatsDisplay];
+}
+
 - (void)windowWillClose:(NSNotification*)n {
     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+    vietki::mac::saveTypingStats(); // main thread: a safe, low-frequency point to flush
 }
 
 @end
